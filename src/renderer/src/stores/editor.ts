@@ -17,12 +17,14 @@ interface EditorState {
   // Defaults applied to newly created annotations.
   color: string
   strokeWidth: number
+  highlightWidth: number
   fontSize: number
   pixelSize: number
 
   setTool: (tool: Tool) => void
   setColor: (color: string) => void
   setStrokeWidth: (w: number) => void
+  setHighlightWidth: (w: number) => void
   setFontSize: (s: number) => void
   setPixelSize: (s: number) => void
   select: (id: string | null) => void
@@ -55,12 +57,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   tool: 'select',
   color: '#ef4444',
   strokeWidth: 4,
+  highlightWidth: 18,
   fontSize: 24,
   pixelSize: 12,
 
   setTool: (tool) => set({ tool, selectedId: null }),
   setColor: (color) => set({ color }),
   setStrokeWidth: (strokeWidth) => set({ strokeWidth }),
+  setHighlightWidth: (highlightWidth) => set({ highlightWidth }),
   setFontSize: (fontSize) => set({ fontSize }),
   setPixelSize: (pixelSize) => set({ pixelSize }),
   select: (selectedId) => set({ selectedId }),

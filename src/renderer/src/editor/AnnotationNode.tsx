@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import Konva from 'konva'
-import { Arrow, Circle, Group, Image as KImage, Rect, Text } from 'react-konva'
+import { Arrow, Circle, Group, Image as KImage, Line, Rect, Text } from 'react-konva'
 import type { Annotation } from './annotations'
 
 export interface NodeProps {
@@ -160,16 +160,31 @@ function AnnotationNode({
       )
 
     case 'highlight':
+      // Paint-style freehand marker. Drags via node offset, then bakes the
+      // translation back into the points (same trick as arrows).
       return (
-        <Rect
-          {...common}
-          x={anno.x}
-          y={anno.y}
-          width={anno.width}
-          height={anno.height}
-          fill={anno.color}
+        <Line
+          id={anno.id}
+          draggable={interactive}
+          listening={interactive}
+          onMouseDown={onSelect}
+          onTap={onSelect}
+          onDragStart={onBeginChange}
+          onDragEnd={(e: Konva.KonvaEventObject<DragEvent>) => {
+            const dx = e.target.x()
+            const dy = e.target.y()
+            e.target.position({ x: 0, y: 0 })
+            onChange({ points: anno.points.map((v, i) => (i % 2 === 0 ? v + dx : v + dy)) }, true)
+          }}
+          points={anno.points}
+          stroke={anno.color}
+          strokeWidth={anno.strokeWidth}
           opacity={0.4}
           globalCompositeOperation="multiply"
+          lineCap="round"
+          lineJoin="round"
+          hitStrokeWidth={anno.strokeWidth + 10}
+          shadowForStrokeEnabled={false}
         />
       )
 

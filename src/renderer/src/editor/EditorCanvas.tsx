@@ -63,8 +63,7 @@ function EditorCanvas({ capture }: { capture: CapturePayload }): React.JSX.Eleme
     const stage = stageRef.current
     if (!tr || !stage) return
     const anno = annotations.find((a) => a.id === selectedId)
-    const resizable =
-      anno && (anno.type === 'rect' || anno.type === 'highlight' || anno.type === 'blur')
+    const resizable = anno && (anno.type === 'rect' || anno.type === 'blur')
     if (resizable && tool === 'select') {
       const node = stage.findOne(`#${selectedId}`)
       if (node) {
@@ -117,7 +116,13 @@ function EditorCanvas({ capture }: { capture: CapturePayload }): React.JSX.Eleme
         })
         break
       case 'highlight':
-        setDraft({ id, type: 'highlight', x: pos.x, y: pos.y, width: 0, height: 0, color: s.color })
+        setDraft({
+          id,
+          type: 'highlight',
+          points: [pos.x, pos.y],
+          strokeWidth: s.highlightWidth,
+          color: s.color
+        })
         break
       case 'blur':
         setDraft({
@@ -135,6 +140,10 @@ function EditorCanvas({ capture }: { capture: CapturePayload }): React.JSX.Eleme
         s.add({ id, type: 'step', x: pos.x, y: pos.y, size: 14, color: s.color })
         break
       case 'text': {
+        // Stop the native mousedown from moving focus: the edit textarea we
+        // are about to mount must keep it, or blur-commit kills the empty
+        // annotation instantly.
+        e.evt.preventDefault()
         const anno: Annotation = {
           id,
           type: 'text',
@@ -157,9 +166,12 @@ function EditorCanvas({ capture }: { capture: CapturePayload }): React.JSX.Eleme
     if (!pos) return
     if (draft.type === 'arrow') {
       setDraft({ ...draft, points: [draft.points[0], draft.points[1], pos.x, pos.y] })
+    } else if (draft.type === 'highlight') {
+      // Freehand: append the pointer trail.
+      setDraft({ ...draft, points: [...draft.points, pos.x, pos.y] })
     } else if ('width' in draft) {
-      // rect/highlight/blur share the drag-a-rectangle interaction. The draft
-      // keeps its origin corner; normalize on commit.
+      // rect/blur share the drag-a-rectangle interaction. The draft keeps its
+      // origin corner; normalize on commit.
       setDraft({ ...draft, width: pos.x - draft.x, height: pos.y - draft.y })
     }
   }
@@ -171,6 +183,10 @@ function EditorCanvas({ capture }: { capture: CapturePayload }): React.JSX.Eleme
     if (draft.type === 'arrow') {
       const [x1, y1, x2, y2] = draft.points
       if (Math.hypot(x2 - x1, y2 - y1) >= MIN_DRAG) s.add(draft)
+      return
+    }
+    if (draft.type === 'highlight') {
+      if (draft.points.length >= 4) s.add(draft)
       return
     }
     if ('width' in draft) {

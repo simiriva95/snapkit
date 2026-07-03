@@ -16,8 +16,13 @@ function TextEditOverlay({ anno, scale, onCommit, onCancel }: Props): React.JSX.
   const ref = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    ref.current?.focus()
-    ref.current?.select()
+    // Deferred: grab focus AFTER the native mousedown default action has run,
+    // otherwise the canvas steals it back and blur-commit fires immediately.
+    const t = setTimeout(() => {
+      ref.current?.focus()
+      ref.current?.select()
+    }, 0)
+    return () => clearTimeout(t)
   }, [])
 
   const commit = (): void => onCommit(ref.current?.value ?? '')

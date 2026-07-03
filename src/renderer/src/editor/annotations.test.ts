@@ -14,7 +14,7 @@ const annos: Annotation[] = [
     strokeWidth: 4
   },
   { id: 'b1', type: 'blur', x: 2, y: 2, width: 4, height: 4, pixelSize: 12, color: '#f00' },
-  { id: 'h1', type: 'highlight', x: 3, y: 3, width: 6, height: 2, color: '#ff0' }
+  { id: 'h1', type: 'highlight', points: [3, 3, 6, 2, 9, 4], strokeWidth: 16, color: '#ff0' }
 ]
 
 describe('annotation model', () => {

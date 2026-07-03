@@ -37,10 +37,9 @@ export interface TextAnno extends Base {
 
 export interface HighlightAnno extends Base {
   type: 'highlight'
-  x: number
-  y: number
-  width: number
-  height: number
+  /** Freehand marker stroke: [x1, y1, x2, y2, ...]. Paint-style. */
+  points: number[]
+  strokeWidth: number
 }
 
 export interface StepAnno extends Base {

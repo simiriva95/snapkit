@@ -62,10 +62,16 @@ function PropertiesPanel(): React.JSX.Element {
     else s.setColor(c)
   }
 
-  const strokeTarget = selected && 'strokeWidth' in selected ? selected : null
+  const strokeTarget =
+    selected && (selected.type === 'arrow' || selected.type === 'rect') ? selected : null
   const showStroke =
     strokeTarget !== null || (!selected && (s.tool === 'arrow' || s.tool === 'rect'))
   const strokeValue = strokeTarget?.strokeWidth ?? s.strokeWidth
+
+  // Paint-style marker size (its own default, thicker than shape strokes).
+  const highlightTarget = selected?.type === 'highlight' ? selected : null
+  const showHighlight = highlightTarget !== null || (!selected && s.tool === 'highlight')
+  const highlightValue = highlightTarget?.strokeWidth ?? s.highlightWidth
 
   const textTarget = selected?.type === 'text' ? selected : null
   const showFont = textTarget !== null || (!selected && s.tool === 'text')
@@ -112,6 +118,20 @@ function PropertiesPanel(): React.JSX.Element {
             strokeTarget
               ? store.getState().update(strokeTarget.id, { strokeWidth: v }, true)
               : s.setStrokeWidth(v)
+          }
+        />
+      )}
+
+      {showHighlight && (
+        <Slider
+          label="Size"
+          value={highlightValue}
+          min={6}
+          max={48}
+          onChange={(v) =>
+            highlightTarget
+              ? store.getState().update(highlightTarget.id, { strokeWidth: v }, true)
+              : s.setHighlightWidth(v)
           }
         />
       )}
