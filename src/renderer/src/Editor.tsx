@@ -1,15 +1,54 @@
-import { Camera, X } from 'lucide-react'
+import { useEffect } from 'react'
+import { Camera, Redo2, Undo2, X } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { useCaptureStore } from '@renderer/stores/capture'
+import { useCanRedo, useCanUndo, useEditorStore } from '@renderer/stores/editor'
 import { dragRegion, noDrag } from '@renderer/lib/titlebar'
+import EditorCanvas from './editor/EditorCanvas'
+import Toolbar from './editor/Toolbar'
+import { TOOLS } from './editor/tools'
+import PropertiesPanel from './editor/PropertiesPanel'
 
-/**
- * M1 editor: shows the captured image. M2 replaces the <img> with the Konva
- * annotation canvas — header/layout stay.
- */
 function Editor(): React.JSX.Element {
   const image = useCaptureStore((s) => s.image)
-  const clear = useCaptureStore((s) => s.clear)
+  const clearCapture = useCaptureStore((s) => s.clear)
+  const canUndo = useCanUndo()
+  const canRedo = useCanRedo()
+  const store = useEditorStore
+
+  // New capture → fresh annotations and history.
+  useEffect(() => {
+    store.getState().reset()
+  }, [image?.dataUrl, store])
+
+  // Editor keyboard shortcuts. Text inputs stopPropagation, so no conflicts.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      const t = e.target as HTMLElement
+      if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement) return
+      const s = store.getState()
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) s.redo()
+        else s.undo()
+        return
+      }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        s.deleteSelected()
+        return
+      }
+      if (e.key === 'Escape') {
+        s.select(null)
+        return
+      }
+      const hit = TOOLS.find((tl) => tl.key.toLowerCase() === e.key.toLowerCase())
+      if (hit && !e.metaKey && !e.ctrlKey && !e.altKey) s.setTool(hit.tool)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [store])
+
   if (!image) return <></>
 
   return (
@@ -22,24 +61,42 @@ function Editor(): React.JSX.Element {
           Capture · {image.width} × {image.height}
         </span>
         <div style={noDrag} className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Undo"
+            disabled={!canUndo}
+            onClick={() => store.getState().undo()}
+          >
+            <Undo2 className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Redo"
+            disabled={!canRedo}
+            onClick={() => store.getState().redo()}
+          >
+            <Redo2 className="size-4" />
+          </Button>
+          <div className="mx-1 h-5 w-px bg-border" />
           <Button variant="ghost" size="sm" onClick={() => window.api.startCapture()}>
             <Camera />
             New capture
           </Button>
-          <Button variant="ghost" size="icon" aria-label="Close capture" onClick={clear}>
+          <Button variant="ghost" size="icon" aria-label="Close capture" onClick={clearCapture}>
             <X className="size-4" />
           </Button>
         </div>
       </header>
 
-      <main className="flex flex-1 items-center justify-center overflow-hidden bg-muted/30 p-6">
-        <img
-          src={image.dataUrl}
-          alt="Captured screenshot"
-          draggable={false}
-          className="max-h-full max-w-full rounded-md border shadow-lg"
-        />
-      </main>
+      <div className="flex min-h-0 flex-1">
+        <Toolbar />
+        <main className="min-w-0 flex-1 bg-muted/30">
+          <EditorCanvas capture={image} />
+        </main>
+        <PropertiesPanel />
+      </div>
     </div>
   )
 }
