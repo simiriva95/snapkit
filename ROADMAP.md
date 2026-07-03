@@ -11,6 +11,12 @@ See [README.md](./README.md) for current status.
 
 ## Post-MVP (parked)
 
+- **Subject extraction / stickers** (iPhone-style): lift the subject from a
+  capture and copy it alone with transparent background. Implementation note:
+  `@imgly/background-removal` — ONNX segmentation running fully locally
+  (fits the privacy-first stance, no cloud). UI: "Copy subject" next to
+  Copy/Styled. Model is ~40-80MB → lazy-download on first use or optional
+  component at install.
 - Video / GIF recording
 - Cloud upload + shareable links
 - Sync across devices
