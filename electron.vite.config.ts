@@ -5,7 +5,8 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    // electron-store is ESM-only: bundle it instead of require()-ing it from CJS.
+    plugins: [externalizeDepsPlugin({ exclude: ['electron-store'] })],
     build: {
       rollupOptions: {
         input: { index: resolve(__dirname, 'src/main/index.ts') }

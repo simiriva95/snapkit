@@ -1,10 +1,11 @@
 import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
 import { IpcChannels } from '@shared/ipc'
-import { createTray } from './tray'
+import { createTray, updateTrayShortcut } from './tray'
 import { initCapture, startAreaCapture, type EditorHost } from './capture'
 import { registerExportIpc } from './export'
-import { registerShortcuts, unregisterShortcuts } from './shortcuts'
+import { getPrefs, registerPrefsIpc } from './prefs'
+import { registerCaptureShortcut, unregisterShortcuts } from './shortcuts'
 
 // electron-vite injects this in dev; absent in a packaged build.
 const RENDERER_DEV_URL = process.env['ELECTRON_RENDERER_URL']
@@ -108,20 +109,33 @@ if (!gotLock) {
     }
     initCapture(host)
     registerExportIpc()
-    registerShortcuts(() => void startAreaCapture(host))
 
-    createTray({
-      show: () => {
-        if (!mainWindow) mainWindow = createWindow()
-        mainWindow.show()
-        mainWindow.focus()
-      },
-      captureArea: () => void startAreaCapture(host),
-      quit: () => {
-        isQuitting = true
-        app.quit()
-      }
+    const capture = (): void => void startAreaCapture(host)
+    const prefs = getPrefs()
+    if (!registerCaptureShortcut(prefs.captureShortcut, capture)) {
+      console.warn(`[shortcuts] could not register ${prefs.captureShortcut} (already in use?)`)
+    }
+    registerPrefsIpc((accelerator) => {
+      const ok = registerCaptureShortcut(accelerator)
+      if (ok) updateTrayShortcut(accelerator)
+      return ok
     })
+
+    createTray(
+      {
+        show: () => {
+          if (!mainWindow) mainWindow = createWindow()
+          mainWindow.show()
+          mainWindow.focus()
+        },
+        captureArea: capture,
+        quit: () => {
+          isQuitting = true
+          app.quit()
+        }
+      },
+      prefs.captureShortcut
+    )
 
     app.on('activate', () => {
       // macOS: re-show or recreate the window when the dock icon is clicked.

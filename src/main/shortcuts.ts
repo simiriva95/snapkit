@@ -1,15 +1,33 @@
 import { globalShortcut } from 'electron'
-import { DEFAULT_CAPTURE_SHORTCUT } from '@shared/ipc'
 
-/** Register global shortcuts. Call from app.whenReady(). */
-export function registerShortcuts(onAreaCapture: () => void): void {
-  const ok = globalShortcut.register(DEFAULT_CAPTURE_SHORTCUT, onAreaCapture)
-  if (!ok) {
-    // Another app owns the combo. Non-fatal: tray menu still works. M5 makes it configurable.
-    console.warn(`[shortcuts] could not register ${DEFAULT_CAPTURE_SHORTCUT} (already in use?)`)
+let currentAccelerator: string | null = null
+let currentHandler: (() => void) | null = null
+
+/**
+ * (Re)register the global capture shortcut. Unregisters the previous one.
+ * Returns false if the accelerator is invalid or taken by another app —
+ * the caller decides how to roll back.
+ */
+export function registerCaptureShortcut(accelerator: string, handler?: () => void): boolean {
+  if (handler) currentHandler = handler
+  if (!currentHandler) return false
+
+  if (currentAccelerator) {
+    globalShortcut.unregister(currentAccelerator)
+    currentAccelerator = null
+  }
+
+  try {
+    const ok = globalShortcut.register(accelerator, currentHandler)
+    if (ok) currentAccelerator = accelerator
+    return ok
+  } catch {
+    // Malformed accelerator string throws.
+    return false
   }
 }
 
 export function unregisterShortcuts(): void {
   globalShortcut.unregisterAll()
+  currentAccelerator = null
 }

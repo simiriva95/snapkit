@@ -1,0 +1,27 @@
+import { DEFAULT_CAPTURE_SHORTCUT } from './ipc'
+
+/** User preferences, persisted by electron-store in the main process. */
+export interface Prefs {
+  /** Electron accelerator for area capture. */
+  captureShortcut: string
+  theme: 'dark' | 'light' | 'system'
+  /** Default folder for the save dialog. null = OS desktop. */
+  exportDir: string | null
+  /** Preferred format preselected in the save dialog. */
+  exportFormat: 'png' | 'jpg'
+  /** Run the sensitive-data scan automatically after each capture. */
+  autoRedactOnCapture: boolean
+  onboardingDone: boolean
+}
+
+export const DEFAULT_PREFS: Prefs = {
+  captureShortcut: DEFAULT_CAPTURE_SHORTCUT,
+  theme: 'dark',
+  exportDir: null,
+  exportFormat: 'png',
+  autoRedactOnCapture: false,
+  onboardingDone: false
+}
+
+/** Outcome of a prefs update — shortcut changes can fail to register. */
+export type PrefsSetResult = { ok: true; prefs: Prefs } | { ok: false; error: string; prefs: Prefs }

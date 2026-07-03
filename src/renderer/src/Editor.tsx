@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Camera, Copy, Download, Redo2, ShieldCheck, Sparkles, Undo2, X } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { useCaptureStore } from '@renderer/stores/capture'
+import { usePrefsStore } from '@renderer/stores/prefs'
 import { useCanRedo, useCanUndo, useEditorStore } from '@renderer/stores/editor'
 import { dragRegion, noDrag } from '@renderer/lib/titlebar'
 import EditorCanvas from './editor/EditorCanvas'
@@ -53,10 +54,13 @@ function Editor(): React.JSX.Element {
     else if (result.status === 'error') showToast(`Save failed: ${result.message}`)
   }, [showToast])
 
-  // New capture → fresh annotations and history.
+  // New capture → fresh annotations and history; optionally auto-scan.
   useEffect(() => {
     store.getState().reset()
-  }, [image?.dataUrl, store])
+    if (image && usePrefsStore.getState().prefs?.autoRedactOnCapture) {
+      void runAutoRedaction(image.dataUrl)
+    }
+  }, [image, image?.dataUrl, store])
 
   // Editor keyboard shortcuts. Text inputs stopPropagation, so no conflicts.
   useEffect(() => {

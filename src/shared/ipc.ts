@@ -20,7 +20,11 @@ export const IpcChannels = {
   /** renderer → main: save image to disk (dialog). */
   exportSave: 'export:save',
   /** renderer → main: copy image to the OS clipboard. */
-  exportCopy: 'export:copy'
+  exportCopy: 'export:copy',
+  /** renderer ↔ main: preferences. */
+  prefsGet: 'prefs:get',
+  prefsSet: 'prefs:set',
+  prefsPickDir: 'prefs:pick-dir'
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
@@ -63,6 +67,12 @@ export interface SnapkitApi {
   exportSave: (dataUrl: string) => Promise<ExportSaveResult>
   /** Put the image on the OS clipboard. */
   exportCopy: (dataUrl: string) => Promise<void>
+  /** Read the persisted preferences. */
+  getPrefs: () => Promise<import('./prefs').Prefs>
+  /** Patch preferences (validates shortcut changes). */
+  setPrefs: (patch: Partial<import('./prefs').Prefs>) => Promise<import('./prefs').PrefsSetResult>
+  /** Native directory picker for the export folder. null = canceled. */
+  pickExportDir: () => Promise<string | null>
 }
 
 /** The API bridged into the selection overlay window. */
