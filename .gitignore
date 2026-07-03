@@ -4,3 +4,6 @@ out
 .DS_Store
 *.log
 .vite
+# generated OCR assets (setup-ocr.mjs) — lang data IS committed
+src/renderer/public/ocr/worker.min.js
+src/renderer/public/ocr/core/

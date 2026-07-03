@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Camera, Redo2, Undo2, X } from 'lucide-react'
+import { Camera, Redo2, ShieldCheck, Undo2, X } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { useCaptureStore } from '@renderer/stores/capture'
 import { useCanRedo, useCanUndo, useEditorStore } from '@renderer/stores/editor'
@@ -8,12 +8,15 @@ import EditorCanvas from './editor/EditorCanvas'
 import Toolbar from './editor/Toolbar'
 import { TOOLS } from './editor/tools'
 import PropertiesPanel from './editor/PropertiesPanel'
+import RedactionBar from './editor/RedactionBar'
+import { runAutoRedaction } from './editor/redact'
 
 function Editor(): React.JSX.Element {
   const image = useCaptureStore((s) => s.image)
   const clearCapture = useCaptureStore((s) => s.clear)
   const canUndo = useCanUndo()
   const canRedo = useCanRedo()
+  const redactionStatus = useEditorStore((s) => s.redactionStatus)
   const store = useEditorStore
 
   // New capture → fresh annotations and history.
@@ -80,6 +83,15 @@ function Editor(): React.JSX.Element {
             <Redo2 className="size-4" />
           </Button>
           <div className="mx-1 h-5 w-px bg-border" />
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={redactionStatus === 'running'}
+            onClick={() => void runAutoRedaction(image.dataUrl)}
+          >
+            <ShieldCheck />
+            Auto-redact
+          </Button>
           <Button variant="ghost" size="sm" onClick={() => window.api.startCapture()}>
             <Camera />
             New capture
@@ -92,8 +104,9 @@ function Editor(): React.JSX.Element {
 
       <div className="flex min-h-0 flex-1">
         <Toolbar />
-        <main className="min-w-0 flex-1 bg-muted/30">
+        <main className="relative min-w-0 flex-1 bg-muted/30">
           <EditorCanvas capture={image} />
+          <RedactionBar />
         </main>
         <PropertiesPanel />
       </div>

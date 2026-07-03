@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { RedactionRegion } from '@shared/redaction'
 import type { Annotation, Tool } from '@renderer/editor/annotations'
 import {
   createHistory,
@@ -9,6 +10,8 @@ import {
   canRedo,
   type History
 } from '@renderer/editor/history'
+
+export type RedactionStatus = 'idle' | 'running' | 'review'
 
 interface EditorState {
   history: History<Annotation[]>
@@ -21,6 +24,12 @@ interface EditorState {
   fontSize: number
   pixelSize: number
 
+  // Auto-redaction flow: idle → running (OCR) → review (proposals on canvas).
+  redactionStatus: RedactionStatus
+  redactionProgress: number
+  redactionError: string | null
+  proposals: RedactionRegion[]
+
   setTool: (tool: Tool) => void
   setColor: (color: string) => void
   setStrokeWidth: (w: number) => void
@@ -31,6 +40,17 @@ interface EditorState {
 
   /** Add a finished annotation (commits to history) and select it. */
   add: (anno: Annotation) => void
+  /** Add several annotations as ONE history step (auto-redaction apply). */
+  addMany: (annos: Annotation[]) => void
+
+  startRedaction: () => void
+  setRedactionProgress: (p: number) => void
+  setRedactionError: (message: string) => void
+  setProposals: (proposals: RedactionRegion[]) => void
+  toggleProposal: (id: string) => void
+  /** Turn the active proposals into blur annotations — one undo step. */
+  applyRedactions: () => void
+  clearRedaction: () => void
   /**
    * Patch an annotation. `commitChange: false` = live update (drag in
    * progress), `true` = final value, pushed to history as one undo step.
@@ -60,6 +80,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   highlightWidth: 18,
   fontSize: 24,
   pixelSize: 12,
+  redactionStatus: 'idle',
+  redactionProgress: 0,
+  redactionError: null,
+  proposals: [],
 
   setTool: (tool) => set({ tool, selectedId: null }),
   setColor: (color) => set({ color }),
@@ -73,6 +97,42 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const h = get().history
     set({ history: commit(h, [...h.present, anno]), selectedId: anno.id })
   },
+
+  addMany: (annos) => {
+    if (annos.length === 0) return
+    const h = get().history
+    set({ history: commit(h, [...h.present, ...annos]) })
+  },
+
+  startRedaction: () =>
+    set({ redactionStatus: 'running', redactionProgress: 0, redactionError: null, proposals: [] }),
+  setRedactionProgress: (redactionProgress) => set({ redactionProgress }),
+  setRedactionError: (redactionError) => set({ redactionError, redactionStatus: 'idle' }),
+  setProposals: (proposals) => set({ proposals, redactionStatus: 'review' }),
+  toggleProposal: (id) =>
+    set({
+      proposals: get().proposals.map((p) => (p.id === id ? { ...p, active: !p.active } : p))
+    }),
+  applyRedactions: () => {
+    const { proposals, pixelSize, color } = get()
+    get().addMany(
+      proposals
+        .filter((p) => p.active)
+        .map((p) => ({
+          id: crypto.randomUUID(),
+          type: 'blur' as const,
+          x: p.x,
+          y: p.y,
+          width: p.width,
+          height: p.height,
+          pixelSize,
+          color
+        }))
+    )
+    get().clearRedaction()
+  },
+  clearRedaction: () =>
+    set({ redactionStatus: 'idle', redactionProgress: 0, redactionError: null, proposals: [] }),
 
   update: (id, patch, commitChange) => {
     const h = get().history
@@ -115,7 +175,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   reset: () => {
     pending = null
-    set({ history: createHistory<Annotation[]>([]), selectedId: null, tool: 'select' })
+    set({
+      history: createHistory<Annotation[]>([]),
+      selectedId: null,
+      tool: 'select',
+      redactionStatus: 'idle',
+      redactionProgress: 0,
+      redactionError: null,
+      proposals: []
+    })
   }
 }))
 

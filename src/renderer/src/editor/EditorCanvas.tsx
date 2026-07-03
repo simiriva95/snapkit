@@ -6,6 +6,7 @@ import { useEditorStore, useAnnotations } from '@renderer/stores/editor'
 import { normalizeRect, stepNumber, type Annotation } from './annotations'
 import AnnotationNode from './AnnotationNode'
 import TextEditOverlay from './TextEditOverlay'
+import RedactionLayer from './RedactionLayer'
 
 const MIN_DRAG = 3 // px in image coords — smaller drags are accidental clicks
 
@@ -297,6 +298,7 @@ function EditorCanvas({ capture }: { capture: CapturePayload }): React.JSX.Eleme
                 newBox.width < 4 || newBox.height < 4 ? oldBox : newBox
               }
             />
+            <RedactionLayer />
           </Layer>
         </Stage>
 
