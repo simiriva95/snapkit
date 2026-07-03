@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { flushSync } from 'react-dom'
 import Konva from 'konva'
 import { Image as KImage, Layer, Stage, Transformer } from 'react-konva'
 import type { CapturePayload } from '@shared/ipc'
@@ -23,7 +24,13 @@ function useHtmlImage(src: string): HTMLImageElement | null {
   return img
 }
 
-function EditorCanvas({ capture }: { capture: CapturePayload }): React.JSX.Element {
+interface EditorCanvasProps {
+  capture: CapturePayload
+  /** Imperative hook the header buttons use to pull a clean full-res PNG. */
+  exportRef: RefObject<(() => string | null) | null>
+}
+
+function EditorCanvas({ capture, exportRef }: EditorCanvasProps): React.JSX.Element {
   const image = useHtmlImage(capture.dataUrl)
   const containerRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
@@ -31,6 +38,7 @@ function EditorCanvas({ capture }: { capture: CapturePayload }): React.JSX.Eleme
   const [scale, setScale] = useState(1)
   const [draft, setDraft] = useState<Annotation | null>(null)
   const [editingTextId, setEditingTextId] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
 
   const annotations = useAnnotations()
   const tool = useEditorStore((s) => s.tool)
@@ -75,6 +83,27 @@ function EditorCanvas({ capture }: { capture: CapturePayload }): React.JSX.Eleme
     }
     tr.nodes([])
   }, [selectedId, annotations, tool, scale])
+
+  // Header export: strip selection chrome + proposals, snapshot at full res
+  // (pixelRatio compensates the fit scale), then restore the UI.
+  useEffect(() => {
+    exportRef.current = () => {
+      const stage = stageRef.current
+      if (!stage) return null
+      flushSync(() => {
+        store.getState().select(null)
+        setExporting(true)
+      })
+      trRef.current?.nodes([])
+      stage.draw()
+      const url = stage.toDataURL({ pixelRatio: 1 / scale, mimeType: 'image/png' })
+      flushSync(() => setExporting(false))
+      return url
+    }
+    return () => {
+      exportRef.current = null
+    }
+  }, [exportRef, scale, store])
 
   const pointer = (): { x: number; y: number } | null => {
     const p = stageRef.current?.getPointerPosition()
@@ -298,7 +327,7 @@ function EditorCanvas({ capture }: { capture: CapturePayload }): React.JSX.Eleme
                 newBox.width < 4 || newBox.height < 4 ? oldBox : newBox
               }
             />
-            <RedactionLayer />
+            {!exporting && <RedactionLayer />}
           </Layer>
         </Stage>
 

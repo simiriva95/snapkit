@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { Camera, Redo2, ShieldCheck, Undo2, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Camera, Copy, Download, Redo2, ShieldCheck, Sparkles, Undo2, X } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { useCaptureStore } from '@renderer/stores/capture'
 import { useCanRedo, useCanUndo, useEditorStore } from '@renderer/stores/editor'
@@ -10,6 +10,7 @@ import { TOOLS } from './editor/tools'
 import PropertiesPanel from './editor/PropertiesPanel'
 import RedactionBar from './editor/RedactionBar'
 import { runAutoRedaction } from './editor/redact'
+import { composeWithBackground } from './editor/exporter'
 
 function Editor(): React.JSX.Element {
   const image = useCaptureStore((s) => s.image)
@@ -18,6 +19,39 @@ function Editor(): React.JSX.Element {
   const canRedo = useCanRedo()
   const redactionStatus = useEditorStore((s) => s.redactionStatus)
   const store = useEditorStore
+
+  const exportRef = useRef<(() => string | null) | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const showToast = useCallback((message: string): void => {
+    setToast(message)
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(null), 2500)
+  }, [])
+
+  const doCopy = useCallback(async (): Promise<void> => {
+    const url = exportRef.current?.()
+    if (!url) return
+    await window.api.exportCopy(url)
+    showToast('Copied to clipboard')
+  }, [showToast])
+
+  const doCopyStyled = useCallback(async (): Promise<void> => {
+    const url = exportRef.current?.()
+    if (!url) return
+    const styled = await composeWithBackground(url)
+    await window.api.exportCopy(styled)
+    showToast('Copied with background')
+  }, [showToast])
+
+  const doSave = useCallback(async (): Promise<void> => {
+    const url = exportRef.current?.()
+    if (!url) return
+    const result = await window.api.exportSave(url)
+    if (result.status === 'saved') showToast(`Saved to ${result.path}`)
+    else if (result.status === 'error') showToast(`Save failed: ${result.message}`)
+  }, [showToast])
 
   // New capture → fresh annotations and history.
   useEffect(() => {
@@ -37,6 +71,16 @@ function Editor(): React.JSX.Element {
         else s.undo()
         return
       }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') {
+        e.preventDefault()
+        void (e.shiftKey ? doCopyStyled() : doCopy())
+        return
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        void doSave()
+        return
+      }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         s.deleteSelected()
         return
@@ -50,7 +94,7 @@ function Editor(): React.JSX.Element {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [store])
+  }, [store, doCopy, doCopyStyled, doSave])
 
   if (!image) return <></>
 
@@ -92,9 +136,33 @@ function Editor(): React.JSX.Element {
             <ShieldCheck />
             Auto-redact
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => window.api.startCapture()}>
-            <Camera />
-            New capture
+          <div className="mx-1 h-5 w-px bg-border" />
+          <Button variant="ghost" size="sm" title="Copy — ⌘C" onClick={() => void doCopy()}>
+            <Copy />
+            Copy
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            title="Copy with padded background — ⇧⌘C"
+            onClick={() => void doCopyStyled()}
+          >
+            <Sparkles />
+            Styled
+          </Button>
+          <Button variant="ghost" size="sm" title="Save to file — ⌘S" onClick={() => void doSave()}>
+            <Download />
+            Save
+          </Button>
+          <div className="mx-1 h-5 w-px bg-border" />
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="New capture"
+            title="New capture"
+            onClick={() => window.api.startCapture()}
+          >
+            <Camera className="size-4" />
           </Button>
           <Button variant="ghost" size="icon" aria-label="Close capture" onClick={clearCapture}>
             <X className="size-4" />
@@ -105,8 +173,16 @@ function Editor(): React.JSX.Element {
       <div className="flex min-h-0 flex-1">
         <Toolbar />
         <main className="relative min-w-0 flex-1 bg-muted/30">
-          <EditorCanvas capture={image} />
+          <EditorCanvas capture={image} exportRef={exportRef} />
           <RedactionBar />
+          {toast && (
+            <div
+              role="status"
+              className="absolute right-4 top-4 z-20 max-w-sm truncate rounded-md border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-lg"
+            >
+              {toast}
+            </div>
+          )}
         </main>
         <PropertiesPanel />
       </div>

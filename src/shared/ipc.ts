@@ -16,7 +16,11 @@ export const IpcChannels = {
   /** overlay renderer → main: user confirmed a selection rectangle. */
   overlaySelect: 'overlay:select',
   /** overlay renderer → main: user cancelled (Esc / empty selection). */
-  overlayCancel: 'overlay:cancel'
+  overlayCancel: 'overlay:cancel',
+  /** renderer → main: save image to disk (dialog). */
+  exportSave: 'export:save',
+  /** renderer → main: copy image to the OS clipboard. */
+  exportCopy: 'export:copy'
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
@@ -41,6 +45,10 @@ export interface CapturePayload {
   height: number
 }
 
+/** Outcome of a save-to-file export. */
+export type ExportSaveResult =
+  { status: 'saved'; path: string } | { status: 'canceled' } | { status: 'error'; message: string }
+
 /** The API bridged into the main window via contextBridge (see preload). */
 export interface SnapkitApi {
   /** App version string, read from the main process. */
@@ -51,6 +59,10 @@ export interface SnapkitApi {
   startCapture: () => void
   /** Subscribe to finished captures. Returns an unsubscribe function. */
   onCapture: (cb: (payload: CapturePayload) => void) => () => void
+  /** Save a PNG data URL to disk (native dialog; .jpg path = auto-convert). */
+  exportSave: (dataUrl: string) => Promise<ExportSaveResult>
+  /** Put the image on the OS clipboard. */
+  exportCopy: (dataUrl: string) => Promise<void>
 }
 
 /** The API bridged into the selection overlay window. */

@@ -3,6 +3,7 @@ import { join } from 'path'
 import { IpcChannels } from '@shared/ipc'
 import { createTray } from './tray'
 import { initCapture, startAreaCapture, type EditorHost } from './capture'
+import { registerExportIpc } from './export'
 import { registerShortcuts, unregisterShortcuts } from './shortcuts'
 
 // electron-vite injects this in dev; absent in a packaged build.
@@ -106,6 +107,7 @@ if (!gotLock) {
       }
     }
     initCapture(host)
+    registerExportIpc()
     registerShortcuts(() => void startAreaCapture(host))
 
     createTray({

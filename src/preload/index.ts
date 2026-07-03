@@ -15,7 +15,9 @@ const api: SnapkitApi = {
     const listener = (_e: IpcRendererEvent, payload: CapturePayload): void => cb(payload)
     ipcRenderer.on(IpcChannels.captureCaptured, listener)
     return () => ipcRenderer.removeListener(IpcChannels.captureCaptured, listener)
-  }
+  },
+  exportSave: (dataUrl) => ipcRenderer.invoke(IpcChannels.exportSave, dataUrl),
+  exportCopy: (dataUrl) => ipcRenderer.invoke(IpcChannels.exportCopy, dataUrl)
 }
 
 const overlayApi: OverlayApi = {
