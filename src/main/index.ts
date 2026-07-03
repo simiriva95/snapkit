@@ -2,6 +2,8 @@ import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
 import { IpcChannels } from '@shared/ipc'
 import { createTray } from './tray'
+import { initCapture, startAreaCapture, type EditorHost } from './capture'
+import { registerShortcuts, unregisterShortcuts } from './shortcuts'
 
 // electron-vite injects this in dev; absent in a packaged build.
 const RENDERER_DEV_URL = process.env['ELECTRON_RENDERER_URL']
@@ -94,12 +96,24 @@ if (!gotLock) {
     applyProductionCsp()
     registerIpc()
     mainWindow = createWindow()
+
+    const host: EditorHost = {
+      peek: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null),
+      ensure: () => {
+        if (!mainWindow || mainWindow.isDestroyed()) mainWindow = createWindow()
+        return mainWindow
+      }
+    }
+    initCapture(host)
+    registerShortcuts(() => void startAreaCapture(host))
+
     createTray({
       show: () => {
         if (!mainWindow) mainWindow = createWindow()
         mainWindow.show()
         mainWindow.focus()
       },
+      captureArea: () => void startAreaCapture(host),
       quit: () => {
         isQuitting = true
         app.quit()
@@ -115,4 +129,6 @@ if (!gotLock) {
 
   // Do NOT quit on window-all-closed: this is a tray-resident app.
   app.on('window-all-closed', () => {})
+
+  app.on('will-quit', () => unregisterShortcuts())
 }

@@ -1,17 +1,24 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useState } from 'react'
 import { Camera, Minus, ShieldCheck } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
-
-// Frameless window: this strip is the OS drag handle; interactive controls opt out.
-const dragRegion: CSSProperties = { WebkitAppRegion: 'drag' } as CSSProperties
-const noDrag: CSSProperties = { WebkitAppRegion: 'no-drag' } as CSSProperties
+import { useCaptureStore } from '@renderer/stores/capture'
+import { dragRegion, noDrag, captureShortcutLabel } from '@renderer/lib/titlebar'
+import Editor from './Editor'
 
 function App(): React.JSX.Element {
   const [version, setVersion] = useState('')
+  const image = useCaptureStore((s) => s.image)
 
   useEffect(() => {
     window.api.getVersion().then(setVersion).catch(console.error)
   }, [])
+
+  useEffect(
+    () => window.api.onCapture((payload) => useCaptureStore.getState().setImage(payload)),
+    []
+  )
+
+  if (image) return <Editor />
 
   return (
     <div className="flex h-full flex-col">
@@ -45,13 +52,16 @@ function App(): React.JSX.Element {
           Your screenshots never leave this device
         </div>
 
-        <Button disabled style={noDrag}>
+        <Button style={noDrag} onClick={() => window.api.startCapture()}>
           <Camera />
-          New capture — coming in M1
+          Capture area
+          <kbd className="rounded bg-primary-foreground/15 px-1.5 py-0.5 text-[11px] font-normal">
+            {captureShortcutLabel}
+          </kbd>
         </Button>
 
         {version && (
-          <span className="text-xs text-muted-foreground/60">v{version} · Milestone 0</span>
+          <span className="text-xs text-muted-foreground/60">v{version} · Milestone 1</span>
         )}
       </main>
     </div>
