@@ -7,10 +7,19 @@ import {
   shell,
   systemPreferences,
   type Display,
-  type NativeImage
+  type NativeImage,
+  type Rectangle
 } from 'electron'
-import { IpcChannels, type CapturePayload, type Rect } from '@shared/ipc'
+import {
+  IpcChannels,
+  type CaptureMode,
+  type CapturePayload,
+  type Rect,
+  type WindowSource
+} from '@shared/ipc'
 import { createOverlay } from './overlay'
+import { createWindowPicker } from './windowPicker'
+import { flashRegion } from './flash'
 
 /** Window the capture result is delivered to (the editor / main window). */
 export interface EditorHost {
@@ -20,16 +29,24 @@ export interface EditorHost {
   ensure: () => BrowserWindow
 }
 
-interface Session {
+interface AreaSession {
   image: NativeImage
   /** DIP size of the captured display, to map selection → image pixels. */
   displaySize: { width: number; height: number }
+  /** Absolute bounds of the captured display (for the flash effect). */
+  displayBounds: Rectangle
   overlay: BrowserWindow
   /** Whether the main window was visible before capture (restore on cancel). */
   restoreMain: boolean
 }
 
-let session: Session | null = null
+interface PickerSession {
+  picker: BrowserWindow
+  restoreMain: boolean
+}
+
+let session: AreaSession | null = null
+let pickerSession: PickerSession | null = null
 let busy = false
 
 const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
@@ -37,29 +54,70 @@ const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 const errorMessage = (err: unknown): string => (err instanceof Error ? err.message : String(err))
 
 export function initCapture(host: EditorHost): void {
-  ipcMain.on(IpcChannels.captureStart, () => void startAreaCapture(host))
+  ipcMain.on(IpcChannels.captureStart, (_event, kind?: CaptureMode) =>
+    startCapture(kind ?? 'area', host)
+  )
   ipcMain.on(IpcChannels.overlaySelect, (_event, rect: Rect) => finishSelection(rect, host))
   ipcMain.on(IpcChannels.overlayCancel, () => cancelCapture(host))
+  ipcMain.on(IpcChannels.pickerSelect, (_event, id: string) => void finishWindowPick(id, host))
+  ipcMain.on(IpcChannels.pickerCancel, () => cancelWindowPick(host))
+}
+
+export function startCapture(kind: CaptureMode, host: EditorHost): void {
+  switch (kind) {
+    case 'fullscreen':
+      void startFullscreenCapture(host)
+      break
+    case 'window':
+      void startWindowCapture(host)
+      break
+    default:
+      void startAreaCapture(host)
+  }
+}
+
+/** Hide the main window and check permission. Returns null if capture must abort. */
+async function prepare(host: EditorHost): Promise<{ restoreMain: boolean } | null> {
+  const main = host.peek()
+  const restoreMain = main !== null && main.isVisible()
+  if (restoreMain) {
+    main?.hide()
+    await delay(120) // let the compositor actually remove the window
+  }
+  if (!(await ensureScreenPermission())) {
+    if (restoreMain) main?.show()
+    return null
+  }
+  return { restoreMain }
+}
+
+function deliver(payload: CapturePayload, host: EditorHost): void {
+  const editor = host.ensure()
+  sendWhenReady(editor, IpcChannels.captureCaptured, payload)
+  editor.show()
+  editor.focus()
+}
+
+function fail(err: unknown, restoreMain: boolean, host: EditorHost): void {
+  busy = false
+  if (restoreMain) host.peek()?.show()
+  dialog.showErrorBox(
+    'Capture failed',
+    `${errorMessage(err)}\n\nIf this keeps happening, please report it.`
+  )
 }
 
 export async function startAreaCapture(host: EditorHost): Promise<void> {
   if (busy) return
   busy = true
 
-  const main = host.peek()
-  const restoreMain = main !== null && main.isVisible()
-  if (restoreMain) {
-    main.hide()
-    await delay(120) // let the compositor actually remove the window
+  const prep = await prepare(host)
+  if (!prep) {
+    busy = false
+    return
   }
 
   try {
-    if (!(await ensureScreenPermission())) {
-      if (restoreMain) main.show()
-      busy = false
-      return
-    }
-
     const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
     const image = await grabDisplay(display)
     const previewDataUrl = `data:image/jpeg;base64,${image.toJPEG(70).toString('base64')}`
@@ -74,22 +132,115 @@ export async function startAreaCapture(host: EditorHost): Promise<void> {
     session = {
       image,
       displaySize: { width: display.size.width, height: display.size.height },
+      displayBounds: display.bounds,
       overlay,
-      restoreMain
+      restoreMain: prep.restoreMain
     }
   } catch (err) {
-    busy = false
-    if (restoreMain) main.show()
-    dialog.showErrorBox(
-      'Capture failed',
-      `${errorMessage(err)}\n\nIf this keeps happening, please report it.`
-    )
+    fail(err, prep.restoreMain, host)
   }
+}
+
+export async function startFullscreenCapture(host: EditorHost): Promise<void> {
+  if (busy) return
+  busy = true
+
+  const prep = await prepare(host)
+  if (!prep) {
+    busy = false
+    return
+  }
+
+  try {
+    const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+    const image = await grabDisplay(display)
+    flashRegion(display.bounds)
+    busy = false
+    deliver(
+      { dataUrl: image.toDataURL(), width: display.size.width, height: display.size.height },
+      host
+    )
+  } catch (err) {
+    fail(err, prep.restoreMain, host)
+  }
+}
+
+export async function startWindowCapture(host: EditorHost): Promise<void> {
+  if (busy) return
+  busy = true
+
+  const prep = await prepare(host)
+  if (!prep) {
+    busy = false
+    return
+  }
+
+  try {
+    const sources = await desktopCapturer.getSources({
+      types: ['window'],
+      thumbnailSize: { width: 320, height: 320 }
+    })
+    const pickable: WindowSource[] = sources
+      // Hide our own windows and empty thumbnails (minimized windows).
+      .filter((s) => s.name !== 'Snapkit' && !s.thumbnail.isEmpty())
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        thumbnailDataUrl: `data:image/jpeg;base64,${s.thumbnail.toJPEG(70).toString('base64')}`
+      }))
+    if (pickable.length === 0) {
+      throw new Error('No capturable windows found.')
+    }
+
+    const picker = createWindowPicker(pickable)
+    picker.on('closed', () => {
+      if (pickerSession?.picker === picker) {
+        pickerSession = null
+        busy = false
+      }
+    })
+    pickerSession = { picker, restoreMain: prep.restoreMain }
+  } catch (err) {
+    fail(err, prep.restoreMain, host)
+  }
+}
+
+async function finishWindowPick(id: string, host: EditorHost): Promise<void> {
+  if (!pickerSession) return
+  const { picker } = pickerSession
+  pickerSession = null
+  picker.destroy()
+  busy = false
+
+  try {
+    // Re-grab the chosen window at high resolution.
+    const sources = await desktopCapturer.getSources({
+      types: ['window'],
+      thumbnailSize: { width: 4096, height: 4096 }
+    })
+    const source = sources.find((s) => s.id === id)
+    if (!source || source.thumbnail.isEmpty()) {
+      throw new Error('That window is no longer available — it may have been closed.')
+    }
+    const size = source.thumbnail.getSize()
+    deliver({ dataUrl: source.thumbnail.toDataURL(), width: size.width, height: size.height }, host)
+  } catch (err) {
+    fail(err, false, host)
+  }
+}
+
+function cancelWindowPick(host: EditorHost): void {
+  if (!pickerSession) return
+  const { picker, restoreMain } = pickerSession
+  pickerSession = null
+  picker.destroy()
+  busy = false
+  if (restoreMain) host.peek()?.show()
 }
 
 function finishSelection(rect: Rect, host: EditorHost): void {
   if (!session) return
-  const { image, displaySize, overlay } = session
+  const { image, displaySize, displayBounds, overlay } = session
 
   // Selection is in display CSS px; the image may be HiDPI. Use the real
   // ratio instead of trusting scaleFactor (thumbnail size can differ).
@@ -115,10 +266,13 @@ function finishSelection(rect: Rect, host: EditorHost): void {
   overlay.destroy()
   busy = false
 
-  const editor = host.ensure()
-  sendWhenReady(editor, IpcChannels.captureCaptured, payload)
-  editor.show()
-  editor.focus()
+  flashRegion({
+    x: displayBounds.x + Math.round(rect.x),
+    y: displayBounds.y + Math.round(rect.y),
+    width: Math.round(rect.width),
+    height: Math.round(rect.height)
+  })
+  deliver(payload, host)
 }
 
 function cancelCapture(host: EditorHost): void {

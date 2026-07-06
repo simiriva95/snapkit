@@ -1,26 +1,37 @@
 import { Tray, Menu, nativeImage } from 'electron'
+import type { Prefs } from '@shared/prefs'
 // electron-vite copies this next to the bundle and rewrites the path (?asset).
 import trayIconPath from '../../resources/tray-iconTemplate.png?asset'
 
 export interface TrayActions {
   show: () => void
   captureArea: () => void
+  captureFullscreen: () => void
+  captureWindow: () => void
   quit: () => void
 }
+
+type TrayShortcuts = Pick<Prefs, 'captureShortcut' | 'fullscreenShortcut' | 'windowShortcut'>
 
 // Keep a module-level ref so the tray isn't garbage-collected.
 let tray: Tray | null = null
 let actionsRef: TrayActions | null = null
 
-function buildMenu(accelerator: string): Menu {
+function buildMenu(shortcuts: TrayShortcuts): Menu {
   const actions = actionsRef
   if (!actions) throw new Error('tray menu built before createTray')
   return Menu.buildFromTemplate([
+    // Accelerators are display hints only — real registration is in shortcuts.ts.
+    { label: 'Capture Area', accelerator: shortcuts.captureShortcut, click: actions.captureArea },
     {
-      label: 'Capture Area',
-      // Display hint only — the real registration is in shortcuts.ts.
-      accelerator,
-      click: actions.captureArea
+      label: 'Capture Full Screen',
+      accelerator: shortcuts.fullscreenShortcut,
+      click: actions.captureFullscreen
+    },
+    {
+      label: 'Capture Window',
+      accelerator: shortcuts.windowShortcut,
+      click: actions.captureWindow
     },
     { type: 'separator' },
     { label: 'Open Snapkit', click: actions.show },
@@ -29,7 +40,7 @@ function buildMenu(accelerator: string): Menu {
   ])
 }
 
-export function createTray(actions: TrayActions, accelerator: string): Tray {
+export function createTray(actions: TrayActions, shortcuts: TrayShortcuts): Tray {
   actionsRef = actions
   const icon = nativeImage.createFromPath(trayIconPath)
   // macOS: a template image auto-adapts to light/dark menu bars.
@@ -37,14 +48,14 @@ export function createTray(actions: TrayActions, accelerator: string): Tray {
 
   tray = new Tray(icon)
   tray.setToolTip('Snapkit')
-  tray.setContextMenu(buildMenu(accelerator))
+  tray.setContextMenu(buildMenu(shortcuts))
   // Left-click (or click on non-macOS) opens the window.
   tray.on('click', actions.show)
 
   return tray
 }
 
-/** Reflect a shortcut change in the tray menu hint. */
-export function updateTrayShortcut(accelerator: string): void {
-  tray?.setContextMenu(buildMenu(accelerator))
+/** Reflect shortcut changes in the tray menu hints. */
+export function updateTrayShortcuts(shortcuts: TrayShortcuts): void {
+  tray?.setContextMenu(buildMenu(shortcuts))
 }

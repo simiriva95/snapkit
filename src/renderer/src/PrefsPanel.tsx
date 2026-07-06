@@ -51,6 +51,47 @@ function Segmented<T extends string>({
   )
 }
 
+function ShortcutRecorder({
+  label,
+  value,
+  onRecord
+}: {
+  label: string
+  value: string
+  onRecord: (accelerator: string) => void
+}): React.JSX.Element {
+  const [recording, setRecording] = useState(false)
+  return (
+    <button
+      onClick={() => setRecording(true)}
+      onBlur={() => setRecording(false)}
+      onKeyDown={(e) => {
+        if (!recording) return
+        e.preventDefault()
+        e.stopPropagation()
+        if (e.key === 'Escape') {
+          setRecording(false)
+          return
+        }
+        const acc = acceleratorFromEvent(e.nativeEvent)
+        if (acc) {
+          setRecording(false)
+          onRecord(acc)
+        }
+      }}
+      aria-label={`${label} — click, then press the new combination`}
+      className={cn(
+        'flex min-w-28 items-center justify-center gap-2 rounded-md border px-3 py-1.5 font-mono text-sm outline-none',
+        'focus-visible:ring-[3px] focus-visible:ring-ring/50',
+        recording && 'border-primary text-muted-foreground'
+      )}
+    >
+      <Keyboard className="size-3.5" />
+      {recording ? 'Press keys…' : formatAccelerator(value)}
+    </button>
+  )
+}
+
 function LicenseRow(): React.JSX.Element {
   const [status, setStatus] = useState<LicenseStatus | null>(null)
   const [key, setKey] = useState('')
@@ -118,7 +159,6 @@ function LicenseRow(): React.JSX.Element {
 function PrefsPanel({ onBack }: { onBack: () => void }): React.JSX.Element {
   const prefs = usePrefsStore((s) => s.prefs)
   const save = usePrefsStore((s) => s.save)
-  const [recording, setRecording] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   if (!prefs) return <></>
@@ -149,34 +189,28 @@ function PrefsPanel({ onBack }: { onBack: () => void }): React.JSX.Element {
 
       <main className="flex-1 overflow-y-auto px-6 py-4">
         <div className="mx-auto max-w-md divide-y">
-          <Row label="Capture shortcut">
-            <button
-              onClick={() => setRecording(true)}
-              onBlur={() => setRecording(false)}
-              onKeyDown={(e) => {
-                if (!recording) return
-                e.preventDefault()
-                e.stopPropagation()
-                if (e.key === 'Escape') {
-                  setRecording(false)
-                  return
-                }
-                const acc = acceleratorFromEvent(e.nativeEvent)
-                if (acc) {
-                  setRecording(false)
-                  patch({ captureShortcut: acc })
-                }
-              }}
-              aria-label="Capture shortcut — click, then press the new combination"
-              className={cn(
-                'flex min-w-28 items-center justify-center gap-2 rounded-md border px-3 py-1.5 font-mono text-sm outline-none',
-                'focus-visible:ring-[3px] focus-visible:ring-ring/50',
-                recording && 'border-primary text-muted-foreground'
-              )}
-            >
-              <Keyboard className="size-3.5" />
-              {recording ? 'Press keys…' : formatAccelerator(prefs.captureShortcut)}
-            </button>
+          <Row label="Capture area">
+            <ShortcutRecorder
+              label="Area capture shortcut"
+              value={prefs.captureShortcut}
+              onRecord={(acc) => patch({ captureShortcut: acc })}
+            />
+          </Row>
+
+          <Row label="Capture full screen">
+            <ShortcutRecorder
+              label="Full-screen capture shortcut"
+              value={prefs.fullscreenShortcut}
+              onRecord={(acc) => patch({ fullscreenShortcut: acc })}
+            />
+          </Row>
+
+          <Row label="Capture window">
+            <ShortcutRecorder
+              label="Window capture shortcut"
+              value={prefs.windowShortcut}
+              onRecord={(acc) => patch({ windowShortcut: acc })}
+            />
           </Row>
 
           <Row label="Theme">

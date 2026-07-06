@@ -1,25 +1,30 @@
 import { globalShortcut } from 'electron'
 
-let currentAccelerator: string | null = null
-let currentHandler: (() => void) | null = null
+interface Entry {
+  accelerator: string
+  handler: () => void
+}
+
+const entries = new Map<string, Entry>()
 
 /**
- * (Re)register the global capture shortcut. Unregisters the previous one.
- * Returns false if the accelerator is invalid or taken by another app —
+ * (Re)register a named global shortcut. Unregisters that name's previous
+ * accelerator first. Returns false if the accelerator is invalid or taken —
  * the caller decides how to roll back.
  */
-export function registerCaptureShortcut(accelerator: string, handler?: () => void): boolean {
-  if (handler) currentHandler = handler
-  if (!currentHandler) return false
+export function registerShortcut(name: string, accelerator: string, handler?: () => void): boolean {
+  const prev = entries.get(name)
+  const fn = handler ?? prev?.handler
+  if (!fn) return false
 
-  if (currentAccelerator) {
-    globalShortcut.unregister(currentAccelerator)
-    currentAccelerator = null
+  if (prev) {
+    globalShortcut.unregister(prev.accelerator)
+    entries.delete(name)
   }
 
   try {
-    const ok = globalShortcut.register(accelerator, currentHandler)
-    if (ok) currentAccelerator = accelerator
+    const ok = globalShortcut.register(accelerator, fn)
+    if (ok) entries.set(name, { accelerator, handler: fn })
     return ok
   } catch {
     // Malformed accelerator string throws.
@@ -29,5 +34,5 @@ export function registerCaptureShortcut(accelerator: string, handler?: () => voi
 
 export function unregisterShortcuts(): void {
   globalShortcut.unregisterAll()
-  currentAccelerator = null
+  entries.clear()
 }

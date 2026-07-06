@@ -27,13 +27,29 @@ export const IpcChannels = {
   prefsPickDir: 'prefs:pick-dir',
   /** renderer ↔ main: license. */
   licenseGet: 'license:get',
-  licenseActivate: 'license:activate'
+  licenseActivate: 'license:activate',
+  /** main → picker renderer: list of capturable windows. */
+  pickerInit: 'picker:init',
+  /** picker renderer → main: chosen window source id. */
+  pickerSelect: 'picker:select',
+  pickerCancel: 'picker:cancel'
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
 
 /** Default global shortcut for area capture (configurable at M5). */
 export const DEFAULT_CAPTURE_SHORTCUT = 'CommandOrControl+Shift+2'
+
+/** Capture entry points. */
+export type CaptureMode = 'area' | 'fullscreen' | 'window'
+
+/** One capturable window shown in the picker grid. */
+export interface WindowSource {
+  id: string
+  name: string
+  /** Small JPEG preview for the grid. */
+  thumbnailDataUrl: string
+}
 
 /** Selection rectangle in display-local CSS pixels (DIP). */
 export interface Rect {
@@ -62,8 +78,8 @@ export interface SnapkitApi {
   getVersion: () => Promise<string>
   /** Hide the main window (app keeps running in the tray). */
   hideWindow: () => void
-  /** Kick off an area capture (hides the window first). */
-  startCapture: () => void
+  /** Kick off a capture (hides the window first). Default mode: area. */
+  startCapture: (mode?: CaptureMode) => void
   /** Subscribe to finished captures. Returns an unsubscribe function. */
   onCapture: (cb: (payload: CapturePayload) => void) => () => void
   /** Save a PNG data URL to disk (native dialog; .jpg path = auto-convert). */
@@ -89,5 +105,15 @@ export interface OverlayApi {
   /** Confirm the selected rectangle. */
   select: (rect: Rect) => void
   /** Abort the capture. */
+  cancel: () => void
+}
+
+/** The API bridged into the window-picker window. */
+export interface PickerApi {
+  /** Receive the capturable window list. Returns unsubscribe. */
+  onInit: (cb: (payload: { sources: WindowSource[] }) => void) => () => void
+  /** Capture this window. */
+  select: (id: string) => void
+  /** Abort. */
   cancel: () => void
 }

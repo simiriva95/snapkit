@@ -4,6 +4,10 @@ import { DEFAULT_CAPTURE_SHORTCUT } from './ipc'
 export interface Prefs {
   /** Electron accelerator for area capture. */
   captureShortcut: string
+  /** Electron accelerator for full-screen capture. */
+  fullscreenShortcut: string
+  /** Electron accelerator for window capture (opens the picker). */
+  windowShortcut: string
   theme: 'dark' | 'light' | 'system'
   /** Default folder for the save dialog. null = OS desktop. */
   exportDir: string | null
@@ -16,6 +20,8 @@ export interface Prefs {
 
 export const DEFAULT_PREFS: Prefs = {
   captureShortcut: DEFAULT_CAPTURE_SHORTCUT,
+  fullscreenShortcut: 'CommandOrControl+Shift+1',
+  windowShortcut: 'CommandOrControl+Shift+3',
   theme: 'dark',
   exportDir: null,
   exportFormat: 'png',

@@ -1,13 +1,19 @@
 import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
 import { IpcChannels } from '@shared/ipc'
-import { createTray, updateTrayShortcut } from './tray'
-import { initCapture, startAreaCapture, type EditorHost } from './capture'
+import { createTray, updateTrayShortcuts } from './tray'
+import {
+  initCapture,
+  startAreaCapture,
+  startFullscreenCapture,
+  startWindowCapture,
+  type EditorHost
+} from './capture'
 import { registerExportIpc } from './export'
-import { getPrefs, registerPrefsIpc } from './prefs'
+import { getPrefs, registerPrefsIpc, type ShortcutField } from './prefs'
 import { registerLicenseIpc } from './license'
 import { APP_URL, registerAppScheme, serveRenderer } from './protocol'
-import { registerCaptureShortcut, unregisterShortcuts } from './shortcuts'
+import { registerShortcut, unregisterShortcuts } from './shortcuts'
 
 // electron-vite injects this in dev; absent in a packaged build.
 const RENDERER_DEV_URL = process.env['ELECTRON_RENDERER_URL']
@@ -114,16 +120,21 @@ if (!gotLock) {
     initCapture(host)
     registerExportIpc()
 
-    const capture = (): void => void startAreaCapture(host)
-    const prefs = getPrefs()
-    if (!registerCaptureShortcut(prefs.captureShortcut, capture)) {
-      console.warn(`[shortcuts] could not register ${prefs.captureShortcut} (already in use?)`)
+    const handlers: Record<ShortcutField, () => void> = {
+      captureShortcut: () => void startAreaCapture(host),
+      fullscreenShortcut: () => void startFullscreenCapture(host),
+      windowShortcut: () => void startWindowCapture(host)
     }
-    registerPrefsIpc((accelerator) => {
-      const ok = registerCaptureShortcut(accelerator)
-      if (ok) updateTrayShortcut(accelerator)
-      return ok
-    })
+    const prefs = getPrefs()
+    for (const field of Object.keys(handlers) as ShortcutField[]) {
+      if (!registerShortcut(field, prefs[field], handlers[field])) {
+        console.warn(`[shortcuts] could not register ${prefs[field]} (already in use?)`)
+      }
+    }
+    registerPrefsIpc(
+      (field, accelerator) => registerShortcut(field, accelerator),
+      (updated) => updateTrayShortcuts(updated)
+    )
 
     createTray(
       {
@@ -132,13 +143,15 @@ if (!gotLock) {
           mainWindow.show()
           mainWindow.focus()
         },
-        captureArea: capture,
+        captureArea: handlers.captureShortcut,
+        captureFullscreen: handlers.fullscreenShortcut,
+        captureWindow: handlers.windowShortcut,
         quit: () => {
           isQuitting = true
           app.quit()
         }
       },
-      prefs.captureShortcut
+      prefs
     )
 
     app.on('activate', () => {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Camera, Minus, Settings, ShieldCheck } from 'lucide-react'
+import { AppWindow, Camera, Minus, Monitor, Settings, ShieldCheck } from 'lucide-react'
 import type { LicenseStatus } from '@shared/license'
 import { Button } from '@renderer/components/ui/button'
 import { useCaptureStore } from '@renderer/stores/capture'
@@ -127,13 +127,35 @@ function App(): React.JSX.Element {
           Your screenshots never leave this device
         </div>
 
-        <Button style={noDrag} onClick={() => window.api.startCapture()}>
-          <Camera />
-          Capture area
-          <kbd className="rounded bg-primary-foreground/15 px-1.5 py-0.5 text-[11px] font-normal">
-            {shortcutLabel}
-          </kbd>
-        </Button>
+        <div className="flex flex-col items-center gap-2">
+          <Button style={noDrag} onClick={() => window.api.startCapture()}>
+            <Camera />
+            Capture area
+            <kbd className="rounded bg-primary-foreground/15 px-1.5 py-0.5 text-[11px] font-normal">
+              {shortcutLabel}
+            </kbd>
+          </Button>
+          <div style={noDrag} className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.api.startCapture('fullscreen')}
+            >
+              <Monitor />
+              Full screen
+              <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-normal">
+                {formatAccelerator(prefs?.fullscreenShortcut ?? 'CommandOrControl+Shift+1')}
+              </kbd>
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => window.api.startCapture('window')}>
+              <AppWindow />
+              Window
+              <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-normal">
+                {formatAccelerator(prefs?.windowShortcut ?? 'CommandOrControl+Shift+3')}
+              </kbd>
+            </Button>
+          </div>
+        </div>
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
           {version && <span>v{version}</span>}

@@ -20,6 +20,7 @@ Your screenshots **never leave your device**: OCR and redaction run entirely loc
 - ✅ **M4 · Export** — save PNG/JPG, clipboard copy, styled copy (padded gradient backdrop)
 - ✅ **M5 · Preferences** — persisted prefs, configurable shortcut, dark/light/system theme, onboarding, keyboard a11y
 - ✅ **M6 · Packaging + license stub** — electron-builder (3 OS), offline `LicenseValidator` (trial + stub key)
+- ✅ **M7 · Capture modes** — full-screen (⌘⇧1) and window capture with picker (⌘⇧3), flash feedback, all three shortcuts configurable
 
 Post-MVP plans: [ROADMAP.md](./ROADMAP.md)
 
@@ -116,8 +117,9 @@ privacy positioning).
 
 - OCR is English-only (multilingual → roadmap); secrets spanning multiple OCR words
   are not detected (word-level matching).
-- Area capture works on the display under the cursor; simultaneous multi-display
-  selection is on the roadmap.
+- Capture works on the display under the cursor; simultaneous multi-display
+  selection is on the roadmap (phase 2).
+- Window capture resolution is capped by desktopCapturer thumbnails (4096px).
 - Wayland support depends on the compositor's xdg-desktop-portal screen-share support.
 - Tray icon is a generated placeholder; per-OS designed icons pending.
 - macOS Screen Recording permission requires an app relaunch after granting (OS limit).
