@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Camera, Minus, Settings, ShieldCheck } from 'lucide-react'
+import type { LicenseStatus } from '@shared/license'
 import { Button } from '@renderer/components/ui/button'
 import { useCaptureStore } from '@renderer/stores/capture'
 import { usePrefsStore } from '@renderer/stores/prefs'
@@ -46,6 +47,7 @@ function Onboarding({ onDone }: { onDone: () => void }): React.JSX.Element {
 function App(): React.JSX.Element {
   const [version, setVersion] = useState('')
   const [view, setView] = useState<'home' | 'prefs'>('home')
+  const [license, setLicense] = useState<LicenseStatus | null>(null)
   const image = useCaptureStore((s) => s.image)
   const prefs = usePrefsStore((s) => s.prefs)
   const loadPrefs = usePrefsStore((s) => s.load)
@@ -53,8 +55,9 @@ function App(): React.JSX.Element {
 
   useEffect(() => {
     window.api.getVersion().then(setVersion).catch(console.error)
+    window.api.getLicense().then(setLicense).catch(console.error)
     void loadPrefs()
-  }, [loadPrefs])
+  }, [loadPrefs, view])
 
   useEffect(
     () => window.api.onCapture((payload) => useCaptureStore.getState().setImage(payload)),
@@ -132,9 +135,26 @@ function App(): React.JSX.Element {
           </kbd>
         </Button>
 
-        {version && (
-          <span className="text-xs text-muted-foreground/60">v{version} · Milestone 5</span>
-        )}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
+          {version && <span>v{version}</span>}
+          {license && (
+            <span
+              className={
+                license.kind === 'expired'
+                  ? 'font-medium text-destructive'
+                  : license.kind === 'trial'
+                    ? 'text-amber-500'
+                    : 'text-green-500'
+              }
+            >
+              {license.kind === 'licensed'
+                ? '· Licensed'
+                : license.kind === 'trial'
+                  ? `· Trial — ${license.daysLeft} day${license.daysLeft === 1 ? '' : 's'} left`
+                  : '· Trial expired'}
+            </span>
+          )}
+        </div>
       </main>
 
       {prefs && !prefs.onboardingDone && (

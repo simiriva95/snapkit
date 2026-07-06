@@ -1,6 +1,7 @@
 import { BrowserWindow, type Display } from 'electron'
 import { join } from 'path'
 import { IpcChannels } from '@shared/ipc'
+import { APP_URL } from './protocol'
 
 const RENDERER_DEV_URL = process.env['ELECTRON_RENDERER_URL']
 
@@ -44,11 +45,9 @@ export function createOverlay(display: Display, previewDataUrl: string): Browser
     win.focus()
   })
 
-  if (RENDERER_DEV_URL) {
-    void win.loadURL(`${RENDERER_DEV_URL}/overlay.html`)
-  } else {
-    void win.loadFile(join(__dirname, '../renderer/overlay.html'))
-  }
+  void win.loadURL(
+    RENDERER_DEV_URL ? `${RENDERER_DEV_URL}/overlay.html` : `${APP_URL}/overlay.html`
+  )
 
   return win
 }

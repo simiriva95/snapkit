@@ -24,7 +24,10 @@ export const IpcChannels = {
   /** renderer ↔ main: preferences. */
   prefsGet: 'prefs:get',
   prefsSet: 'prefs:set',
-  prefsPickDir: 'prefs:pick-dir'
+  prefsPickDir: 'prefs:pick-dir',
+  /** renderer ↔ main: license. */
+  licenseGet: 'license:get',
+  licenseActivate: 'license:activate'
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
@@ -73,6 +76,10 @@ export interface SnapkitApi {
   setPrefs: (patch: Partial<import('./prefs').Prefs>) => Promise<import('./prefs').PrefsSetResult>
   /** Native directory picker for the export folder. null = canceled. */
   pickExportDir: () => Promise<string | null>
+  /** Current license/trial status. */
+  getLicense: () => Promise<import('./license').LicenseStatus>
+  /** Try to activate a license key (validated locally). */
+  activateLicense: (key: string) => Promise<import('./license').LicenseActivateResult>
 }
 
 /** The API bridged into the selection overlay window. */

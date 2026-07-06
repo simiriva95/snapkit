@@ -20,7 +20,9 @@ const api: SnapkitApi = {
   exportCopy: (dataUrl) => ipcRenderer.invoke(IpcChannels.exportCopy, dataUrl),
   getPrefs: () => ipcRenderer.invoke(IpcChannels.prefsGet),
   setPrefs: (patch) => ipcRenderer.invoke(IpcChannels.prefsSet, patch),
-  pickExportDir: () => ipcRenderer.invoke(IpcChannels.prefsPickDir)
+  pickExportDir: () => ipcRenderer.invoke(IpcChannels.prefsPickDir),
+  getLicense: () => ipcRenderer.invoke(IpcChannels.licenseGet),
+  activateLicense: (key) => ipcRenderer.invoke(IpcChannels.licenseActivate, key)
 }
 
 const overlayApi: OverlayApi = {

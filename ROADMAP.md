@@ -29,6 +29,11 @@ See [README.md](./README.md) for current status.
 
 ## Deferred technical debt / decisions
 
+- **License crypto**: stub accepts any well-formed key. Before launch: Ed25519
+  offline signature validation + trial enforcement decision (see README).
+- **Code signing**: mac notarization + win cert before selling (README steps).
+- **Auto-update**: electron-updater + GitHub Releases — documented, not wired.
+
 - **Tray icon**: M0 ships a generated monochrome placeholder (`scripts/make-tray-icon.mjs`).
   Replace with designed, per-OS icons (light/dark taskbar variants for Windows/Linux).
 - **CSP in dev**: relaxed to allow Vite HMR; strict CSP is applied only in packaged builds.

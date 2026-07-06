@@ -5,6 +5,8 @@ import { createTray, updateTrayShortcut } from './tray'
 import { initCapture, startAreaCapture, type EditorHost } from './capture'
 import { registerExportIpc } from './export'
 import { getPrefs, registerPrefsIpc } from './prefs'
+import { registerLicenseIpc } from './license'
+import { APP_URL, registerAppScheme, serveRenderer } from './protocol'
 import { registerCaptureShortcut, unregisterShortcuts } from './shortcuts'
 
 // electron-vite injects this in dev; absent in a packaged build.
@@ -51,11 +53,8 @@ function createWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
-  if (RENDERER_DEV_URL) {
-    void win.loadURL(RENDERER_DEV_URL)
-  } else {
-    void win.loadFile(join(__dirname, '../renderer/index.html'))
-  }
+  // Dev: Vite server. Prod: custom app:// scheme (see protocol.ts).
+  void win.loadURL(RENDERER_DEV_URL ?? `${APP_URL}/index.html`)
 
   return win
 }
@@ -82,6 +81,9 @@ function registerIpc(): void {
   ipcMain.on(IpcChannels.windowHide, () => mainWindow?.hide())
 }
 
+// Must happen before app is ready.
+registerAppScheme()
+
 // Single-instance: focus the existing window instead of spawning a second app.
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
@@ -96,8 +98,10 @@ if (!gotLock) {
   })
 
   app.whenReady().then(() => {
+    if (!RENDERER_DEV_URL) serveRenderer()
     applyProductionCsp()
     registerIpc()
+    registerLicenseIpc()
     mainWindow = createWindow()
 
     const host: EditorHost = {

@@ -1,0 +1,36 @@
+appId: dev.snapkit.app
+productName: Snapkit
+directories:
+  output: dist
+files:
+  - out/**
+  - resources/**
+  - package.json
+
+# No code signing in the MVP. macOS: identity null = unsigned build (users
+# right-click → Open). See README "Code signing & notarization" before release.
+mac:
+  category: public.app-category.developer-tools
+  identity: null
+  target:
+    - dmg
+    - zip
+
+win:
+  target:
+    - nsis
+
+nsis:
+  oneClick: true
+  deleteAppDataOnUninstall: false
+
+linux:
+  category: Utility
+  target:
+    - AppImage
+    - deb
+
+# Auto-update is documented in the README (electron-updater + GitHub
+# Releases) but not wired yet — no publish target on purpose.
+publish: null
+npmRebuild: false

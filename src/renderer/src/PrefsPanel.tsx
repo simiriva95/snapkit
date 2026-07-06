@@ -1,11 +1,12 @@
-import { useState } from 'react'
-import { ArrowLeft, Folder, Keyboard } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowLeft, Folder, KeyRound, Keyboard } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { usePrefsStore } from '@renderer/stores/prefs'
 import { acceleratorFromEvent, formatAccelerator } from '@renderer/lib/accelerator'
 import { cn } from '@renderer/lib/utils'
 import { dragRegion, noDrag } from '@renderer/lib/titlebar'
 import type { Prefs } from '@shared/prefs'
+import type { LicenseStatus } from '@shared/license'
 
 function Row({ label, children }: { label: string; children: React.ReactNode }): React.JSX.Element {
   return (
@@ -46,6 +47,70 @@ function Segmented<T extends string>({
           {o.label}
         </button>
       ))}
+    </div>
+  )
+}
+
+function LicenseRow(): React.JSX.Element {
+  const [status, setStatus] = useState<LicenseStatus | null>(null)
+  const [key, setKey] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    window.api.getLicense().then(setStatus).catch(console.error)
+  }, [])
+
+  const activate = (): void => {
+    setError(null)
+    void window.api.activateLicense(key).then((res) => {
+      setStatus(res.status)
+      if (!res.ok) setError(res.error ?? 'Activation failed')
+      else setKey('')
+    })
+  }
+
+  if (status?.kind === 'licensed') {
+    return (
+      <Row label="License">
+        <span className="flex items-center gap-1.5 text-xs text-green-500">
+          <KeyRound className="size-3.5" />
+          Licensed · {status.key}
+        </span>
+      </Row>
+    )
+  }
+
+  return (
+    <div className="py-3">
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-sm">
+          License
+          {status?.kind === 'trial' && (
+            <span className="ml-2 text-xs text-amber-500">trial — {status.daysLeft}d left</span>
+          )}
+          {status?.kind === 'expired' && (
+            <span className="ml-2 text-xs text-destructive">trial expired</span>
+          )}
+        </span>
+        <div className="flex items-center gap-2">
+          <input
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && activate()}
+            placeholder="SNAP-XXXX-XXXX-XXXX-XXXX"
+            aria-label="License key"
+            className="w-56 rounded-md border bg-transparent px-2 py-1.5 font-mono text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          />
+          <Button size="sm" variant="outline" disabled={key.trim() === ''} onClick={activate}>
+            Activate
+          </Button>
+        </div>
+      </div>
+      {error && (
+        <p role="alert" className="mt-2 text-xs text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   )
 }
@@ -157,6 +222,8 @@ function PrefsPanel({ onBack }: { onBack: () => void }): React.JSX.Element {
               Choose…
             </Button>
           </Row>
+
+          <LicenseRow />
 
           <Row label="Auto-redact after capture">
             <button
