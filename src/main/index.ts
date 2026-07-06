@@ -2,18 +2,13 @@ import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
 import { IpcChannels } from '@shared/ipc'
 import { createTray, updateTrayShortcuts } from './tray'
-import {
-  initCapture,
-  startAreaCapture,
-  startFullscreenCapture,
-  startWindowCapture,
-  type EditorHost
-} from './capture'
+import { initCapture, startCapture, type EditorHost } from './capture'
 import { registerExportIpc } from './export'
 import { getPrefs, registerPrefsIpc, type ShortcutField } from './prefs'
 import { registerLicenseIpc } from './license'
 import { APP_URL, registerAppScheme, serveRenderer } from './protocol'
 import { registerShortcut, unregisterShortcuts } from './shortcuts'
+import { initAutoUpdate } from './updater'
 
 // electron-vite injects this in dev; absent in a packaged build.
 const RENDERER_DEV_URL = process.env['ELECTRON_RENDERER_URL']
@@ -108,6 +103,7 @@ if (!gotLock) {
     applyProductionCsp()
     registerIpc()
     registerLicenseIpc()
+    initAutoUpdate()
     mainWindow = createWindow()
 
     const host: EditorHost = {
@@ -120,10 +116,11 @@ if (!gotLock) {
     initCapture(host)
     registerExportIpc()
 
+    // All entry points route through startCapture — the license guard lives there.
     const handlers: Record<ShortcutField, () => void> = {
-      captureShortcut: () => void startAreaCapture(host),
-      fullscreenShortcut: () => void startFullscreenCapture(host),
-      windowShortcut: () => void startWindowCapture(host)
+      captureShortcut: () => startCapture('area', host),
+      fullscreenShortcut: () => startCapture('fullscreen', host),
+      windowShortcut: () => startCapture('window', host)
     }
     const prefs = getPrefs()
     for (const field of Object.keys(handlers) as ShortcutField[]) {

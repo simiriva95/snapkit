@@ -115,7 +115,7 @@ function LicenseRow(): React.JSX.Element {
       <Row label="License">
         <span className="flex items-center gap-1.5 text-xs text-green-500">
           <KeyRound className="size-3.5" />
-          Licensed · {status.key}
+          Licensed · {status.key.slice(0, 24)}…
         </span>
       </Row>
     )
@@ -138,7 +138,7 @@ function LicenseRow(): React.JSX.Element {
             value={key}
             onChange={(e) => setKey(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && activate()}
-            placeholder="SNAP-XXXX-XXXX-XXXX-XXXX"
+            placeholder="SNAPK1.…"
             aria-label="License key"
             className="w-56 rounded-md border bg-transparent px-2 py-1.5 font-mono text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
           />

@@ -20,6 +20,7 @@ import {
 import { createOverlay } from './overlay'
 import { createWindowPicker } from './windowPicker'
 import { flashRegion } from './flash'
+import { licenseValidator } from './license'
 
 /** Window the capture result is delivered to (the editor / main window). */
 export interface EditorHost {
@@ -64,6 +65,12 @@ export function initCapture(host: EditorHost): void {
 }
 
 export function startCapture(kind: CaptureMode, host: EditorHost): void {
+  // Trial enforcement is soft: new captures are blocked, the editor and
+  // export of already-captured shots keep working.
+  if (licenseValidator.status().kind === 'expired') {
+    showTrialExpiredDialog(host)
+    return
+  }
   switch (kind) {
     case 'fullscreen':
       void startFullscreenCapture(host)
@@ -74,6 +81,27 @@ export function startCapture(kind: CaptureMode, host: EditorHost): void {
     default:
       void startAreaCapture(host)
   }
+}
+
+function showTrialExpiredDialog(host: EditorHost): void {
+  void dialog
+    .showMessageBox({
+      type: 'info',
+      message: 'Your Snapkit trial has ended',
+      detail:
+        'Enter a license key in Preferences to keep capturing. ' +
+        'Everything stays offline — the key is validated on this device.',
+      buttons: ['Open Snapkit', 'Cancel'],
+      defaultId: 0,
+      cancelId: 1
+    })
+    .then(({ response }) => {
+      if (response === 0) {
+        const win = host.ensure()
+        win.show()
+        win.focus()
+      }
+    })
 }
 
 /** Hide the main window and check permission. Returns null if capture must abort. */

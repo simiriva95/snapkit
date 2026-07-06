@@ -1,0 +1,54 @@
+name: Release
+
+# Tag vX.Y.Z (matching package.json version) → build signed installers on all
+# three OSes and publish them to a GitHub Release (electron-updater feed).
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Some environments skip electron's postinstall binary download.
+      - run: node node_modules/electron/install.js
+
+      - run: npm test
+      - run: npm run typecheck
+
+      - name: Build and publish
+        run: npm run build && npx electron-builder --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Production license public key (PEM). Falls back to the committed
+          # DEV key when unset — do NOT ship a real release without this.
+          SNAPKIT_LICENSE_PUBKEY: ${{ secrets.SNAPKIT_LICENSE_PUBKEY }}
+          # macOS signing + notarization (set the secrets to enable; unsigned otherwise)
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows signing (Azure Trusted Signing — see docs/selling.md)
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          # Skip mac signing gracefully when no cert secret is configured.
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.MAC_CSC_LINK != '' }}

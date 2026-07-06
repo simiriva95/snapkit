@@ -7,11 +7,11 @@ files:
   - resources/**
   - package.json
 
-# No code signing in the MVP. macOS: identity null = unsigned build (users
-# right-click → Open). See README "Code signing & notarization" before release.
+# Signing is env-driven (see docs/selling.md): local `npm run package` skips
+# it via CSC_IDENTITY_AUTO_DISCOVERY=false; CI signs when secrets are present
+# (CSC_LINK/CSC_KEY_PASSWORD; notarization via APPLE_ID/APPLE_APP_SPECIFIC_PASSWORD/APPLE_TEAM_ID).
 mac:
   category: public.app-category.developer-tools
-  identity: null
   target:
     - dmg
     - zip
@@ -30,7 +30,10 @@ linux:
     - AppImage
     - deb
 
-# Auto-update is documented in the README (electron-updater + GitHub
-# Releases) but not wired yet — no publish target on purpose.
-publish: null
+# Auto-update feed (electron-updater): GitHub Releases.
+# CHANGE owner/repo to the real GitHub repository before the first release.
+publish:
+  provider: github
+  owner: simiriva95
+  repo: snapkit
 npmRebuild: false

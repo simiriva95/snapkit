@@ -98,20 +98,22 @@ each running `npm run package`.
 
 ## License model & monetization
 
-One-time license, offline validation — no account, no cloud (consistent with the
-privacy positioning).
+One-time license, **offline Ed25519 validation** — no account, no cloud, no server
+roundtrip (consistent with the privacy positioning).
 
-- `src/main/license.ts` — `LicenseValidator` interface. The MVP ships a **stub**:
-  14-day trial (from first run) + format-only key check (`SNAP-XXXX-XXXX-XXXX-XXXX`,
-  any well-formed key activates). Trial expiry does not block features yet — decide
-  enforcement at launch.
-- **Production path** (documented, not built): sell via **Gumroad or Lemon Squeezy**
-  (no infra, they handle VAT). Generate keys as Ed25519 signatures of
-  `{email, orderId}`; embed the public key in the app; `activate()` verifies the
-  signature offline. One new `LicenseValidator` implementation, zero other changes.
-- **Auto-update** (documented, not wired): `electron-updater` + GitHub Releases —
-  add `publish: {provider: github}` to electron-builder.yml, call
-  `autoUpdater.checkForUpdatesAndNotify()` in main. Requires signed builds on mac/win.
+- Keys are `SNAPK1.<payload>.<signature>` — Ed25519 signature of `{email, orderId}`
+  verified against the public key baked into the app (`src/main/licenseCrypto.ts`,
+  unit-tested). 14-day trial from first run; on expiry new captures are blocked,
+  editor/export keep working.
+- Dev builds use the committed dev keypair (`scripts/dev-license-keys/` — forgeable
+  by design); release builds bake a real key via the `SNAPKIT_LICENSE_PUBKEY` secret.
+- Tooling: `scripts/license-keygen.mjs` (keypair + manual signing),
+  `tools/license-webhook/` (Lemon Squeezy → signed key by email).
+- **Auto-update**: wired via `electron-updater` + GitHub Releases (see
+  `src/main/updater.ts` and the `publish` block in electron-builder.yml).
+
+**Everything owner-side (accounts, certs, secrets, first release) is a checklist in
+[docs/selling.md](./docs/selling.md).**
 
 ## Known limits (declared)
 

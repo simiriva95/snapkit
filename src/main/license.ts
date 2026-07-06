@@ -1,23 +1,28 @@
 import { ipcMain } from 'electron'
 import Store from 'electron-store'
 import { IpcChannels } from '@shared/ipc'
-import {
-  LICENSE_KEY_FORMAT,
-  TRIAL_DAYS,
-  type LicenseActivateResult,
-  type LicenseStatus
-} from '@shared/license'
+import { TRIAL_DAYS, type LicenseActivateResult, type LicenseStatus } from '@shared/license'
+import { verifyLicenseKey } from './licenseCrypto'
 
 /**
- * Pluggable license validation. The MVP ships StubLicenseValidator: a 14-day
- * trial keyed on first run + format-only key validation (any well-formed
- * SNAP-XXXX-... key activates).
+ * Offline Ed25519 license validation. Keys are signed by the store backend
+ * at purchase time (see scripts/license-keygen.mjs and docs/selling.md);
+ * the app only needs the public key — no server roundtrip, ever.
  *
- * Swapping in real validation later (Gumroad / Lemon Squeezy) means one new
- * implementation of this interface: offline Ed25519 — embed the public key
- * here, the store backend signs {email, orderId} into the key at purchase,
- * activate() verifies the signature locally. No server roundtrip needed.
+ * The public key is injected at BUILD time via the SNAPKIT_LICENSE_PUBKEY
+ * env var (see electron.vite.config.ts). Without it, builds fall back to the
+ * committed DEV key — fine for development, forgeable in production. CI must
+ * set the real key for release builds.
  */
+const DEV_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEA7JY74z1mYr6nVLG/aBHkmxTyMwRGLMdGIxKOAF3oSF0=
+-----END PUBLIC KEY-----`
+
+const PUBLIC_KEY_PEM =
+  typeof __SNAPKIT_LICENSE_PUBKEY__ !== 'undefined' && __SNAPKIT_LICENSE_PUBKEY__ !== ''
+    ? __SNAPKIT_LICENSE_PUBKEY__
+    : DEV_PUBLIC_KEY_PEM
+
 export interface LicenseValidator {
   status: () => LicenseStatus
   activate: (key: string) => LicenseActivateResult
@@ -33,10 +38,13 @@ const store = new Store<LicenseData>({
   defaults: { firstRunAt: Date.now(), licenseKey: null }
 })
 
-class StubLicenseValidator implements LicenseValidator {
+class Ed25519LicenseValidator implements LicenseValidator {
   status(): LicenseStatus {
     const key = store.get('licenseKey')
-    if (key) return { kind: 'licensed', key }
+    // Re-verify on every read: the store file is user-editable.
+    if (key && verifyLicenseKey(key, PUBLIC_KEY_PEM).valid) {
+      return { kind: 'licensed', key }
+    }
 
     const elapsedDays = (Date.now() - store.get('firstRunAt')) / 86_400_000
     const daysLeft = Math.ceil(TRIAL_DAYS - elapsedDays)
@@ -44,21 +52,17 @@ class StubLicenseValidator implements LicenseValidator {
   }
 
   activate(key: string): LicenseActivateResult {
-    const normalized = key.trim().toUpperCase()
-    if (!LICENSE_KEY_FORMAT.test(normalized)) {
-      return {
-        ok: false,
-        error: 'Invalid key — expected format: SNAP-XXXX-XXXX-XXXX-XXXX',
-        status: this.status()
-      }
+    const normalized = key.trim()
+    const result = verifyLicenseKey(normalized, PUBLIC_KEY_PEM)
+    if (!result.valid) {
+      return { ok: false, error: result.reason, status: this.status() }
     }
-    // Stub: format check only. Real impl verifies an offline signature here.
     store.set('licenseKey', normalized)
     return { ok: true, status: this.status() }
   }
 }
 
-export const licenseValidator: LicenseValidator = new StubLicenseValidator()
+export const licenseValidator: LicenseValidator = new Ed25519LicenseValidator()
 
 export function registerLicenseIpc(): void {
   ipcMain.handle(IpcChannels.licenseGet, () => licenseValidator.status())

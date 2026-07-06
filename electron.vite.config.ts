@@ -7,6 +7,11 @@ export default defineConfig({
   main: {
     // electron-store is ESM-only: bundle it instead of require()-ing it from CJS.
     plugins: [externalizeDepsPlugin({ exclude: ['electron-store'] })],
+    define: {
+      // Real license public key, injected at release-build time (CI).
+      // Empty string → the app falls back to the committed DEV key.
+      __SNAPKIT_LICENSE_PUBKEY__: JSON.stringify(process.env.SNAPKIT_LICENSE_PUBKEY ?? '')
+    },
     build: {
       rollupOptions: {
         input: { index: resolve(__dirname, 'src/main/index.ts') }
