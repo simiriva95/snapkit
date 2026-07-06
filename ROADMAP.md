@@ -29,6 +29,10 @@ Goal: a stranger can pay, download, install and update without friction.
 Goal: widen the moat on the three axes (cross-platform, privacy, developer-first).
 Ordered by wow-per-effort.
 
+**Status**: 2.1 ✅ (self-hosted assets via setup-bgr.mjs instead of lazy-download —
+offline-pure, +76MB) · 2.2 ✅ · 2.3 ✅ (bundled packs, not lazy) · 2.4 ✅ · 2.6 ✅ ·
+2.5 scrolling capture **pending** (the one L-sized item left).
+
 | #   | Item                                             | Effort | Implementation note                                                                                                                                                                                                                                                                       |
 | --- | ------------------------------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2.1 | **Subject extraction / stickers** (iPhone-style) | M      | `@imgly/background-removal` — ONNX segmentation, fully local (fits privacy stance). UI: "Copy subject" beside Copy/Styled. Model 40–80MB → lazy-download on first use with progress toast, cache in userData.                                                                             |

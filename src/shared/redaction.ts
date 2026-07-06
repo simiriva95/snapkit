@@ -78,6 +78,39 @@ export interface OcrWord {
   bbox: { x0: number; y0: number; x1: number; y1: number }
 }
 
+/** An OCR text line: the words that compose it, in reading order. */
+export interface OcrLine {
+  words: OcrWord[]
+}
+
+/**
+ * Patterns for secrets that SPAN MULTIPLE words (OCR splits on spaces), matched
+ * against the whole line text and mapped back to word bounding boxes.
+ */
+export const LINE_PATTERNS: RedactionPattern[] = [
+  {
+    id: 'bearer',
+    label: 'Bearer token',
+    regex: /\bBearer\s+[A-Za-z0-9._~+/=-]{15,}/i
+  },
+  {
+    id: 'private-key',
+    label: 'Private key',
+    regex: /-----BEGIN [A-Z ]*PRIVATE KEY-----/
+  },
+  {
+    id: 'password-assignment',
+    label: 'Password',
+    regex: /\b(?:password|passwd|pwd)\s*[:=]\s*\S{4,}/i
+  },
+  {
+    id: 'secret-assignment',
+    label: 'Secret',
+    regex:
+      /\b(?:secret(?:_access)?_key|client_secret|api[_-]?key|access[_-]?token)\s*[:=]\s*\S{8,}/i
+  }
+]
+
 export interface RedactionRegion {
   id: string
   x: number
@@ -92,9 +125,8 @@ export interface RedactionRegion {
 const PAD = 4 // px of breathing room around the OCR bbox
 
 /**
- * Word-level detection: the sensitive strings we target (emails, tokens,
- * keys, IPs) contain no spaces, so they land in a single OCR word.
- * Multi-word secrets are out of scope and declared as a known limit.
+ * Word-level detection: single-token secrets (emails, keys, IPs) land in one
+ * OCR word. Multi-word secrets are handled by proposeLineRedactions.
  */
 export function proposeRedactions(
   words: OcrWord[],
@@ -115,4 +147,69 @@ export function proposeRedactions(
     })
   }
   return regions
+}
+
+/**
+ * Line-level detection for secrets spanning multiple OCR words: rebuild the
+ * line text (single spaces, so char offsets align with the word array), run
+ * LINE_PATTERNS, then map the matched char range back to the union bbox of
+ * the covered words.
+ */
+export function proposeLineRedactions(
+  lines: OcrLine[],
+  makeId: () => string = () => Math.random().toString(36).slice(2)
+): RedactionRegion[] {
+  const regions: RedactionRegion[] = []
+  for (const line of lines) {
+    if (line.words.length === 0) continue
+    let joined = ''
+    const spans: { start: number; end: number }[] = []
+    for (const w of line.words) {
+      if (joined) joined += ' '
+      spans.push({ start: joined.length, end: joined.length + w.text.length })
+      joined += w.text
+    }
+
+    for (const p of LINE_PATTERNS) {
+      const m = p.regex.exec(joined)
+      if (!m) continue
+      const mStart = m.index
+      const mEnd = m.index + m[0].length
+      const covered = line.words.filter((_, i) => spans[i].end > mStart && spans[i].start < mEnd)
+      if (covered.length === 0) continue
+      const x0 = Math.min(...covered.map((w) => w.bbox.x0))
+      const y0 = Math.min(...covered.map((w) => w.bbox.y0))
+      const x1 = Math.max(...covered.map((w) => w.bbox.x1))
+      const y1 = Math.max(...covered.map((w) => w.bbox.y1))
+      regions.push({
+        id: makeId(),
+        x: x0 - PAD,
+        y: y0 - PAD,
+        width: x1 - x0 + PAD * 2,
+        height: y1 - y0 + PAD * 2,
+        label: p.label,
+        active: true
+      })
+    }
+  }
+  return regions
+}
+
+/**
+ * Drop near-duplicate proposals (a word-level hit inside a line-level one):
+ * larger regions win; a region overlapping a kept one by >60% of its own
+ * area is discarded.
+ */
+export function dedupeRegions(regions: RedactionRegion[]): RedactionRegion[] {
+  const area = (r: RedactionRegion): number => Math.max(0, r.width) * Math.max(0, r.height)
+  const overlap = (a: RedactionRegion, b: RedactionRegion): number => {
+    const w = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)
+    const h = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y)
+    return w > 0 && h > 0 ? w * h : 0
+  }
+  const kept: RedactionRegion[] = []
+  for (const r of [...regions].sort((a, b) => area(b) - area(a))) {
+    if (!kept.some((k) => overlap(k, r) > 0.6 * area(r))) kept.push(r)
+  }
+  return kept
 }

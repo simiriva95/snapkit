@@ -159,23 +159,8 @@ function App(): React.JSX.Element {
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
           {version && <span>v{version}</span>}
-          {license && (
-            <span
-              className={
-                license.kind === 'expired'
-                  ? 'font-medium text-destructive'
-                  : license.kind === 'trial'
-                    ? 'text-amber-500'
-                    : 'text-green-500'
-              }
-            >
-              {license.kind === 'licensed'
-                ? '· Licensed'
-                : license.kind === 'trial'
-                  ? `· Trial — ${license.daysLeft} day${license.daysLeft === 1 ? '' : 's'} left`
-                  : '· Trial expired'}
-            </span>
-          )}
+          {/* Free build: badge only celebrates a license, no trial nagging. */}
+          {license?.kind === 'licensed' && <span className="text-green-500">· Licensed</span>}
         </div>
       </main>
 

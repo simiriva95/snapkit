@@ -13,8 +13,12 @@ export interface Prefs {
   exportDir: string | null
   /** Preferred format preselected in the save dialog. */
   exportFormat: 'png' | 'jpg'
+  /** Backdrop preset for "styled copy" (see editor/exporter.ts). */
+  styledTemplate: string
   /** Run the sensitive-data scan automatically after each capture. */
   autoRedactOnCapture: boolean
+  /** OCR languages (tesseract codes). Bundled: eng, ita, deu, fra, spa. */
+  ocrLanguages: string[]
   onboardingDone: boolean
 }
 
@@ -25,9 +29,20 @@ export const DEFAULT_PREFS: Prefs = {
   theme: 'dark',
   exportDir: null,
   exportFormat: 'png',
+  styledTemplate: 'indigo',
   autoRedactOnCapture: false,
+  ocrLanguages: ['eng'],
   onboardingDone: false
 }
+
+/** Languages shipped with the app (see src/renderer/public/ocr/lang). */
+export const BUNDLED_OCR_LANGUAGES = [
+  { code: 'eng', label: 'English' },
+  { code: 'ita', label: 'Italiano' },
+  { code: 'deu', label: 'Deutsch' },
+  { code: 'fra', label: 'Français' },
+  { code: 'spa', label: 'Español' }
+] as const
 
 /** Outcome of a prefs update — shortcut changes can fail to register. */
 export type PrefsSetResult = { ok: true; prefs: Prefs } | { ok: false; error: string; prefs: Prefs }

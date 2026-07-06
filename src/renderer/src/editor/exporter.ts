@@ -19,6 +19,21 @@ export interface StyledOptions {
   gradient?: [string, string]
 }
 
+/** Branded backdrop presets for "styled copy" (pref: styledTemplate). */
+export const STYLED_TEMPLATES = [
+  { id: 'indigo', label: 'Indigo', gradient: ['#6366f1', '#a855f7'] },
+  { id: 'sunset', label: 'Sunset', gradient: ['#f97316', '#ef4444'] },
+  { id: 'ocean', label: 'Ocean', gradient: ['#06b6d4', '#3b82f6'] },
+  { id: 'graphite', label: 'Graphite', gradient: ['#374151', '#111827'] }
+] as const
+
+export type StyledTemplateId = (typeof STYLED_TEMPLATES)[number]['id']
+
+export function templateGradient(id: string): [string, string] {
+  const t = STYLED_TEMPLATES.find((t) => t.id === id) ?? STYLED_TEMPLATES[0]
+  return [t.gradient[0], t.gradient[1]]
+}
+
 export async function composeWithBackground(
   dataUrl: string,
   { padding = 64, radius = 12, gradient = ['#6366f1', '#a855f7'] }: StyledOptions = {}

@@ -18,7 +18,8 @@ mac:
 
 win:
   target:
-    - nsis
+    - target: nsis
+      arch: [x64] # the overwhelming majority of Windows machines
 
 nsis:
   oneClick: true

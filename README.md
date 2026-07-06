@@ -21,6 +21,11 @@ Your screenshots **never leave your device**: OCR and redaction run entirely loc
 - ✅ **M5 · Preferences** — persisted prefs, configurable shortcut, dark/light/system theme, onboarding, keyboard a11y
 - ✅ **M6 · Packaging + license stub** — electron-builder (3 OS), offline `LicenseValidator` (trial + stub key)
 - ✅ **M7 · Capture modes** — full-screen (⌘⇧1) and window capture with picker (⌘⇧3), flash feedback, all three shortcuts configurable
+- ✅ **Phase 2 (partial)** — subject extraction/stickers (local ONNX), multi-word secret detection, multilingual OCR (eng/ita/deu/fra/spa), simultaneous multi-display capture, styled-copy templates. Pending: scrolling capture.
+
+> **Currently a free build**: the 14-day trial gate is disabled (license
+> activation still works, it's just optional). Re-enable in
+> `src/main/capture.ts → startCapture`.
 
 Post-MVP plans: [ROADMAP.md](./ROADMAP.md)
 
@@ -77,7 +82,8 @@ Key decisions:
 ## Packaging
 
 ```bash
-npm run package        # installers for the OS you're on → dist/
+npm run package         # installers for the OS you're on → dist/
+npm run package:winmac  # .dmg (mac, host arch) + .exe (win x64) in one go
 ```
 
 Outputs: dmg+zip (macOS, unsigned — `identity: null`), NSIS setup (Windows), AppImage+deb (Linux).

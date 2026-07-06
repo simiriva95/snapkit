@@ -1,5 +1,5 @@
 import { createWorker, OEM, type Worker } from 'tesseract.js'
-import type { OcrWord } from '@shared/redaction'
+import type { OcrLine, OcrWord } from '@shared/redaction'
 
 /**
  * Local OCR: worker, WASM core and language data are all served from the
@@ -8,10 +8,19 @@ import type { OcrWord } from '@shared/redaction'
  */
 
 let workerPromise: Promise<Worker> | null = null
+let workerLangs = ''
 let onProgress: ((p: number) => void) | null = null
 
-function getWorker(): Promise<Worker> {
-  workerPromise ??= createWorker('eng', OEM.LSTM_ONLY, {
+function getWorker(langs: string[]): Promise<Worker> {
+  const key = langs.join('+') || 'eng'
+  if (workerPromise && workerLangs === key) return workerPromise
+
+  // Language set changed: drop the old worker and spin up a fresh one.
+  const stale = workerPromise
+  if (stale) void stale.then((w) => w.terminate()).catch(() => undefined)
+
+  workerLangs = key
+  workerPromise = createWorker(langs.length > 0 ? langs : ['eng'], OEM.LSTM_ONLY, {
     workerPath: '/ocr/worker.min.js',
     corePath: '/ocr/core',
     langPath: '/ocr/lang',
@@ -23,26 +32,33 @@ function getWorker(): Promise<Worker> {
   return workerPromise
 }
 
-/** Run OCR on an image and return flattened words with pixel bboxes. */
-export async function recognizeWords(
+export interface OcrPage {
+  words: OcrWord[]
+  lines: OcrLine[]
+}
+
+/** Run OCR on an image; returns flattened words + lines with pixel bboxes. */
+export async function recognizePage(
   dataUrl: string,
+  langs: string[],
   progress?: (p: number) => void
-): Promise<OcrWord[]> {
+): Promise<OcrPage> {
   onProgress = progress ?? null
   try {
-    const worker = await getWorker()
+    const worker = await getWorker(langs)
     const { data } = await worker.recognize(dataUrl, {}, { blocks: true })
     const words: OcrWord[] = []
+    const lines: OcrLine[] = []
     for (const block of data.blocks ?? []) {
       for (const para of block.paragraphs) {
         for (const line of para.lines) {
-          for (const w of line.words) {
-            words.push({ text: w.text, bbox: w.bbox })
-          }
+          const lineWords = line.words.map((w) => ({ text: w.text, bbox: w.bbox }))
+          words.push(...lineWords)
+          lines.push({ words: lineWords })
         }
       }
     }
-    return words
+    return { words, lines }
   } finally {
     onProgress = null
   }

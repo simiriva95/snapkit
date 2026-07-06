@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Camera, Copy, Download, Redo2, ShieldCheck, Sparkles, Undo2, X } from 'lucide-react'
+import {
+  Camera,
+  Copy,
+  Download,
+  Loader2,
+  Redo2,
+  Scissors,
+  ShieldCheck,
+  Sparkles,
+  Undo2,
+  X
+} from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { useCaptureStore } from '@renderer/stores/capture'
 import { usePrefsStore } from '@renderer/stores/prefs'
@@ -11,7 +22,8 @@ import { TOOLS } from './editor/tools'
 import PropertiesPanel from './editor/PropertiesPanel'
 import RedactionBar from './editor/RedactionBar'
 import { runAutoRedaction } from './editor/redact'
-import { composeWithBackground } from './editor/exporter'
+import { composeWithBackground, templateGradient } from './editor/exporter'
+import { extractSubject } from './editor/subject'
 
 function Editor(): React.JSX.Element {
   const image = useCaptureStore((s) => s.image)
@@ -41,10 +53,28 @@ function Editor(): React.JSX.Element {
   const doCopyStyled = useCallback(async (): Promise<void> => {
     const url = exportRef.current?.()
     if (!url) return
-    const styled = await composeWithBackground(url)
+    const template = usePrefsStore.getState().prefs?.styledTemplate ?? 'indigo'
+    const styled = await composeWithBackground(url, { gradient: templateGradient(template) })
     await window.api.exportCopy(styled)
     showToast('Copied with background')
   }, [showToast])
+
+  const [extracting, setExtracting] = useState(false)
+  const doCopySubject = useCallback(async (): Promise<void> => {
+    const src = useCaptureStore.getState().image?.dataUrl
+    if (!src || extracting) return
+    setExtracting(true)
+    try {
+      const subject = await extractSubject(src)
+      await window.api.exportCopy(subject)
+      showToast('Subject copied — paste it as a sticker')
+    } catch (err) {
+      console.error('[subject]', err)
+      showToast('Subject extraction failed — see console')
+    } finally {
+      setExtracting(false)
+    }
+  }, [extracting, showToast])
 
   const doSave = useCallback(async (): Promise<void> => {
     const url = exportRef.current?.()
@@ -153,6 +183,16 @@ function Editor(): React.JSX.Element {
           >
             <Sparkles />
             Styled
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            title="Copy only the subject, background removed (runs locally)"
+            disabled={extracting}
+            onClick={() => void doCopySubject()}
+          >
+            {extracting ? <Loader2 className="animate-spin" /> : <Scissors />}
+            Subject
           </Button>
           <Button variant="ghost" size="sm" title="Save to file — ⌘S" onClick={() => void doSave()}>
             <Download />

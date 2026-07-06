@@ -8,3 +8,5 @@ out
 src/renderer/public/ocr/worker.min.js
 src/renderer/public/ocr/core/
 .claude
+# generated subject-extraction assets (setup-bgr.mjs)
+src/renderer/public/bgr/

@@ -5,7 +5,8 @@ import { usePrefsStore } from '@renderer/stores/prefs'
 import { acceleratorFromEvent, formatAccelerator } from '@renderer/lib/accelerator'
 import { cn } from '@renderer/lib/utils'
 import { dragRegion, noDrag } from '@renderer/lib/titlebar'
-import type { Prefs } from '@shared/prefs'
+import { STYLED_TEMPLATES } from '@renderer/editor/exporter'
+import { BUNDLED_OCR_LANGUAGES, type Prefs } from '@shared/prefs'
 import type { LicenseStatus } from '@shared/license'
 
 function Row({ label, children }: { label: string; children: React.ReactNode }): React.JSX.Element {
@@ -126,12 +127,7 @@ function LicenseRow(): React.JSX.Element {
       <div className="flex items-center justify-between gap-4">
         <span className="text-sm">
           License
-          {status?.kind === 'trial' && (
-            <span className="ml-2 text-xs text-amber-500">trial — {status.daysLeft}d left</span>
-          )}
-          {status?.kind === 'expired' && (
-            <span className="ml-2 text-xs text-destructive">trial expired</span>
-          )}
+          <span className="ml-2 text-xs text-muted-foreground">optional</span>
         </span>
         <div className="flex items-center gap-2">
           <input
@@ -238,6 +234,15 @@ function PrefsPanel({ onBack }: { onBack: () => void }): React.JSX.Element {
             />
           </Row>
 
+          <Row label="Styled copy backdrop">
+            <Segmented
+              ariaLabel="Styled copy backdrop"
+              value={prefs.styledTemplate as never}
+              options={STYLED_TEMPLATES.map((t) => ({ value: t.id as never, label: t.label }))}
+              onChange={(styledTemplate) => patch({ styledTemplate })}
+            />
+          </Row>
+
           <Row label="Export folder">
             <span
               className="max-w-44 truncate text-xs text-muted-foreground"
@@ -258,6 +263,44 @@ function PrefsPanel({ onBack }: { onBack: () => void }): React.JSX.Element {
           </Row>
 
           <LicenseRow />
+
+          <div className="py-3">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-sm">OCR languages</span>
+              <div
+                className="flex flex-wrap justify-end gap-1.5"
+                role="group"
+                aria-label="OCR languages"
+              >
+                {BUNDLED_OCR_LANGUAGES.map((lang) => {
+                  const active = prefs.ocrLanguages.includes(lang.code)
+                  return (
+                    <button
+                      key={lang.code}
+                      role="checkbox"
+                      aria-checked={active}
+                      aria-label={lang.label}
+                      onClick={() => {
+                        const next = active
+                          ? prefs.ocrLanguages.filter((c) => c !== lang.code)
+                          : [...prefs.ocrLanguages, lang.code]
+                        if (next.length > 0) patch({ ocrLanguages: next })
+                      }}
+                      className={cn(
+                        'rounded-md border px-2 py-1 text-xs outline-none transition-colors',
+                        'focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                        active
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      {lang.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
 
           <Row label="Auto-redact after capture">
             <button

@@ -20,7 +20,6 @@ import {
 import { createOverlay } from './overlay'
 import { createWindowPicker } from './windowPicker'
 import { flashRegion } from './flash'
-import { licenseValidator } from './license'
 
 /** Window the capture result is delivered to (the editor / main window). */
 export interface EditorHost {
@@ -30,15 +29,23 @@ export interface EditorHost {
   ensure: () => BrowserWindow
 }
 
-interface AreaSession {
+interface DisplayEntry {
   image: NativeImage
   /** DIP size of the captured display, to map selection → image pixels. */
   displaySize: { width: number; height: number }
   /** Absolute bounds of the captured display (for the flash effect). */
   displayBounds: Rectangle
   overlay: BrowserWindow
+}
+
+/** One frozen overlay per display; the first selection wins. */
+interface AreaSession {
+  /** Keyed by the overlay's webContents id (correlates IPC sender → display). */
+  entries: Map<number, DisplayEntry>
   /** Whether the main window was visible before capture (restore on cancel). */
   restoreMain: boolean
+  /** True while we are tearing the overlays down ourselves. */
+  closing: boolean
 }
 
 interface PickerSession {
@@ -58,19 +65,17 @@ export function initCapture(host: EditorHost): void {
   ipcMain.on(IpcChannels.captureStart, (_event, kind?: CaptureMode) =>
     startCapture(kind ?? 'area', host)
   )
-  ipcMain.on(IpcChannels.overlaySelect, (_event, rect: Rect) => finishSelection(rect, host))
+  ipcMain.on(IpcChannels.overlaySelect, (event, rect: Rect) =>
+    finishSelection(rect, host, event.sender.id)
+  )
   ipcMain.on(IpcChannels.overlayCancel, () => cancelCapture(host))
   ipcMain.on(IpcChannels.pickerSelect, (_event, id: string) => void finishWindowPick(id, host))
   ipcMain.on(IpcChannels.pickerCancel, () => cancelWindowPick(host))
 }
 
 export function startCapture(kind: CaptureMode, host: EditorHost): void {
-  // Trial enforcement is soft: new captures are blocked, the editor and
-  // export of already-captured shots keep working.
-  if (licenseValidator.status().kind === 'expired') {
-    showTrialExpiredDialog(host)
-    return
-  }
+  // FREE BUILD: trial enforcement disabled for now. To re-enable paid mode,
+  // restore the guard: status 'expired' → showTrialExpiredDialog(host).
   switch (kind) {
     case 'fullscreen':
       void startFullscreenCapture(host)
@@ -81,27 +86,6 @@ export function startCapture(kind: CaptureMode, host: EditorHost): void {
     default:
       void startAreaCapture(host)
   }
-}
-
-function showTrialExpiredDialog(host: EditorHost): void {
-  void dialog
-    .showMessageBox({
-      type: 'info',
-      message: 'Your Snapkit trial has ended',
-      detail:
-        'Enter a license key in Preferences to keep capturing. ' +
-        'Everything stays offline — the key is validated on this device.',
-      buttons: ['Open Snapkit', 'Cancel'],
-      defaultId: 0,
-      cancelId: 1
-    })
-    .then(({ response }) => {
-      if (response === 0) {
-        const win = host.ensure()
-        win.show()
-        win.focus()
-      }
-    })
 }
 
 /** Hide the main window and check permission. Returns null if capture must abort. */
@@ -146,26 +130,60 @@ export async function startAreaCapture(host: EditorHost): Promise<void> {
   }
 
   try {
-    const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-    const image = await grabDisplay(display)
-    const previewDataUrl = `data:image/jpeg;base64,${image.toJPEG(70).toString('base64')}`
-    const overlay = createOverlay(display, previewDataUrl)
-    // If the overlay dies for any reason, don't leave the app stuck mid-capture.
-    overlay.on('closed', () => {
-      if (session?.overlay === overlay) {
-        session = null
-        busy = false
-      }
+    // One frozen overlay per display — select on whichever screen you want.
+    const displays = screen.getAllDisplays()
+    const maxW = Math.max(...displays.map((d) => Math.round(d.size.width * d.scaleFactor)))
+    const maxH = Math.max(...displays.map((d) => Math.round(d.size.height * d.scaleFactor)))
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: { width: maxW, height: maxH }
     })
-    session = {
-      image,
-      displaySize: { width: display.size.width, height: display.size.height },
-      displayBounds: display.bounds,
-      overlay,
-      restoreMain: prep.restoreMain
+    if (sources.length === 0) {
+      throw new Error(
+        'No screen sources available. On Linux/Wayland, make sure screen sharing is supported (xdg-desktop-portal).'
+      )
     }
+
+    const entries = new Map<number, DisplayEntry>()
+    for (const display of displays) {
+      const source =
+        sources.find((s) => s.display_id === String(display.id)) ??
+        (displays.length === 1 ? sources[0] : undefined)
+      if (!source || source.thumbnail.isEmpty()) continue
+      const image = source.thumbnail
+      const previewDataUrl = `data:image/jpeg;base64,${image.toJPEG(70).toString('base64')}`
+      const overlay = createOverlay(display, previewDataUrl)
+      // If an overlay dies unexpectedly, don't leave the app stuck mid-capture.
+      overlay.on('closed', () => {
+        if (session && !session.closing) {
+          teardownOverlays()
+          session = null
+          busy = false
+        }
+      })
+      entries.set(overlay.webContents.id, {
+        image,
+        displaySize: { width: display.size.width, height: display.size.height },
+        displayBounds: display.bounds,
+        overlay
+      })
+    }
+    if (entries.size === 0) {
+      throw new Error(
+        'The captured image is empty — the screen may be protected or permission is missing.'
+      )
+    }
+    session = { entries, restoreMain: prep.restoreMain, closing: false }
   } catch (err) {
     fail(err, prep.restoreMain, host)
+  }
+}
+
+function teardownOverlays(): void {
+  if (!session) return
+  session.closing = true
+  for (const entry of session.entries.values()) {
+    if (!entry.overlay.isDestroyed()) entry.overlay.destroy()
   }
 }
 
@@ -266,9 +284,10 @@ function cancelWindowPick(host: EditorHost): void {
   if (restoreMain) host.peek()?.show()
 }
 
-function finishSelection(rect: Rect, host: EditorHost): void {
-  if (!session) return
-  const { image, displaySize, displayBounds, overlay } = session
+function finishSelection(rect: Rect, host: EditorHost, senderId: number): void {
+  const entry = session?.entries.get(senderId)
+  if (!session || !entry) return
+  const { image, displaySize, displayBounds } = entry
 
   // Selection is in display CSS px; the image may be HiDPI. Use the real
   // ratio instead of trusting scaleFactor (thumbnail size can differ).
@@ -290,8 +309,8 @@ function finishSelection(rect: Rect, host: EditorHost): void {
     height: rect.height
   }
 
+  teardownOverlays()
   session = null
-  overlay.destroy()
   busy = false
 
   flashRegion({
@@ -305,9 +324,9 @@ function finishSelection(rect: Rect, host: EditorHost): void {
 
 function cancelCapture(host: EditorHost): void {
   if (!session) return
-  const { overlay, restoreMain } = session
+  const { restoreMain } = session
+  teardownOverlays()
   session = null
-  overlay.destroy()
   busy = false
   if (restoreMain) host.peek()?.show()
 }

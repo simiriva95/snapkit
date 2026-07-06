@@ -7,11 +7,12 @@
   "homepage": "https://github.com/snapkit/snapkit",
   "license": "SEE LICENSE IN README.md",
   "scripts": {
-    "predev": "node scripts/setup-ocr.mjs",
+    "predev": "node scripts/setup-ocr.mjs && node scripts/setup-bgr.mjs",
     "dev": "electron-vite dev",
-    "prebuild": "node scripts/setup-ocr.mjs",
+    "prebuild": "node scripts/setup-ocr.mjs && node scripts/setup-bgr.mjs",
     "build": "electron-vite build",
     "package": "npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --publish never",
+    "package:winmac": "npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder -mw --publish never",
     "package:all": "npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder -mwl --publish never",
     "start": "electron-vite preview",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
@@ -24,6 +25,7 @@
     "gen:appicon": "node scripts/make-app-icon.mjs"
   },
   "dependencies": {
+    "@imgly/background-removal": "^1.7.0",
     "@radix-ui/react-slot": "^1.2.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { detectSensitive, proposeRedactions, type OcrWord } from './redaction'
+import {
+  dedupeRegions,
+  detectSensitive,
+  proposeLineRedactions,
+  proposeRedactions,
+  type OcrLine,
+  type OcrWord,
+  type RedactionRegion
+} from './redaction'
 
 const id = (text: string): string | undefined => detectSensitive(text)?.id
 
@@ -90,5 +98,68 @@ describe('proposeRedactions', () => {
 
   it('returns empty for clean screenshots', () => {
     expect(proposeRedactions([word('nothing'), word('sensitive')])).toEqual([])
+  })
+})
+
+describe('proposeLineRedactions (multi-word secrets)', () => {
+  const line = (...texts: string[]): OcrLine => ({
+    // words laid out left to right, 100px each, 10px gaps
+    words: texts.map((text, i) => ({
+      text,
+      bbox: { x0: i * 110, y0: 50, x1: i * 110 + 100, y1: 70 }
+    }))
+  })
+
+  it('detects Bearer tokens split across words and unions the right bboxes', () => {
+    const regions = proposeLineRedactions(
+      [line('Authorization:', 'Bearer', 'abc123def456ghi789jkl')],
+      () => 'r'
+    )
+    expect(regions).toHaveLength(1)
+    expect(regions[0].label).toBe('Bearer token')
+    // covers words 2 and 3 (110..320), padded by 4
+    expect(regions[0].x).toBe(110 - 4)
+    expect(regions[0].width).toBe(210 + 8)
+  })
+
+  it('detects password assignments', () => {
+    const regions = proposeLineRedactions([line('password:', 'hunter22')], () => 'r')
+    expect(regions).toHaveLength(1)
+    expect(regions[0].label).toBe('Password')
+  })
+
+  it('detects PEM private key headers', () => {
+    const regions = proposeLineRedactions(
+      [line('-----BEGIN', 'RSA', 'PRIVATE', 'KEY-----')],
+      () => 'r'
+    )
+    expect(regions).toHaveLength(1)
+    expect(regions[0].label).toBe('Private key')
+  })
+
+  it('ignores ordinary lines', () => {
+    expect(proposeLineRedactions([line('just', 'some', 'boring', 'text')])).toEqual([])
+  })
+})
+
+describe('dedupeRegions', () => {
+  const region = (x: number, width: number, id: string): RedactionRegion => ({
+    id,
+    x,
+    y: 0,
+    width,
+    height: 20,
+    label: 'x',
+    active: true
+  })
+
+  it('drops a smaller region mostly covered by a bigger one', () => {
+    const kept = dedupeRegions([region(100, 50, 'small'), region(90, 200, 'big')])
+    expect(kept.map((r) => r.id)).toEqual(['big'])
+  })
+
+  it('keeps non-overlapping regions', () => {
+    const kept = dedupeRegions([region(0, 50, 'a'), region(100, 50, 'b')])
+    expect(kept).toHaveLength(2)
   })
 })
