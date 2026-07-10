@@ -69,12 +69,12 @@ function Overlay(): React.JSX.Element {
             top: rect.y,
             width: rect.width,
             height: rect.height,
-            // Signal-amber selection edge + dim veil around it.
-            border: '1.5px solid oklch(0.78 0.15 65)',
-            boxShadow: '0 0 0 100000px rgba(12, 10, 6, 0.45)'
+            // Emerald selection edge + dim veil around it.
+            border: '1.5px solid oklch(0.76 0.15 163)',
+            boxShadow: '0 0 0 100000px rgba(6, 12, 9, 0.45)'
           }}
         >
-          <span className="absolute -bottom-7 left-0 rounded bg-black/85 px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-[oklch(0.85_0.1_70)]">
+          <span className="absolute -bottom-7 left-0 rounded bg-black/85 px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-[oklch(0.85_0.1_163)]">
             {rect.width}×{rect.height}
           </span>
         </div>

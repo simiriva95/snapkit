@@ -17,51 +17,52 @@
 }
 
 /*
- * Precision-instrument palette. Warm graphite neutrals (hue ~70, low chroma —
- * never pure black/white) with ONE accent: signal amber, the indicator lamp
- * of the instrument. Spent sparingly: active tool, focus, primary action.
+ * Precision-instrument palette. Cool graphite neutrals tinted toward the
+ * brand hue (~160, low chroma — never pure black/white) with ONE accent:
+ * emerald, the color of the product promise ("safe to share").
+ * Spent sparingly: active tool, focus, primary action.
  */
 :root {
   --radius: 0.5rem;
-  --background: oklch(0.965 0.004 80);
-  --foreground: oklch(0.24 0.01 70);
-  --card: oklch(0.99 0.002 80);
-  --card-foreground: oklch(0.24 0.01 70);
-  --popover: oklch(0.99 0.002 80);
-  --popover-foreground: oklch(0.24 0.01 70);
-  --primary: oklch(0.56 0.13 58);
-  --primary-foreground: oklch(0.985 0.005 85);
-  --secondary: oklch(0.93 0.005 80);
-  --secondary-foreground: oklch(0.3 0.01 70);
-  --muted: oklch(0.93 0.005 80);
-  --muted-foreground: oklch(0.5 0.01 72);
-  --accent: oklch(0.92 0.008 78);
-  --accent-foreground: oklch(0.26 0.012 70);
+  --background: oklch(0.965 0.003 160);
+  --foreground: oklch(0.24 0.008 165);
+  --card: oklch(0.99 0.002 160);
+  --card-foreground: oklch(0.24 0.008 165);
+  --popover: oklch(0.99 0.002 160);
+  --popover-foreground: oklch(0.24 0.008 165);
+  --primary: oklch(0.52 0.12 163);
+  --primary-foreground: oklch(0.985 0.008 165);
+  --secondary: oklch(0.93 0.004 160);
+  --secondary-foreground: oklch(0.3 0.008 165);
+  --muted: oklch(0.93 0.004 160);
+  --muted-foreground: oklch(0.5 0.01 165);
+  --accent: oklch(0.92 0.006 160);
+  --accent-foreground: oklch(0.26 0.01 165);
   --destructive: oklch(0.55 0.19 27);
-  --border: oklch(0.24 0.01 70 / 14%);
-  --input: oklch(0.24 0.01 70 / 20%);
-  --ring: oklch(0.62 0.13 60);
+  --border: oklch(0.24 0.008 165 / 14%);
+  --input: oklch(0.24 0.008 165 / 20%);
+  --ring: oklch(0.58 0.12 163);
 }
 
 .dark {
-  --background: oklch(0.165 0.006 70);
-  --foreground: oklch(0.93 0.005 82);
-  --card: oklch(0.205 0.007 70);
-  --card-foreground: oklch(0.93 0.005 82);
-  --popover: oklch(0.215 0.008 70);
-  --popover-foreground: oklch(0.93 0.005 82);
-  --primary: oklch(0.76 0.14 65);
-  --primary-foreground: oklch(0.2 0.02 70);
-  --secondary: oklch(0.25 0.007 70);
-  --secondary-foreground: oklch(0.93 0.005 82);
-  --muted: oklch(0.25 0.007 70);
-  --muted-foreground: oklch(0.66 0.01 75);
-  --accent: oklch(0.26 0.009 70);
-  --accent-foreground: oklch(0.95 0.005 82);
+  --background: oklch(0.165 0.005 165);
+  --foreground: oklch(0.93 0.005 165);
+  --card: oklch(0.205 0.006 165);
+  --card-foreground: oklch(0.93 0.005 165);
+  --popover: oklch(0.215 0.007 165);
+  --popover-foreground: oklch(0.93 0.005 165);
+  --primary: oklch(0.74 0.14 163);
+  --primary-foreground: oklch(0.18 0.03 165);
+  --secondary: oklch(0.25 0.006 165);
+  --secondary-foreground: oklch(0.93 0.005 165);
+  --muted: oklch(0.25 0.006 165);
+  --muted-foreground: oklch(0.66 0.008 165);
+  --accent: oklch(0.26 0.008 165);
+  --accent-foreground: oklch(0.95 0.005 165);
   --destructive: oklch(0.66 0.18 25);
-  --border: oklch(0.93 0.006 80 / 11%);
-  --input: oklch(0.93 0.006 80 / 16%);
-  --ring: oklch(0.76 0.14 65);
+  --border: oklch(0.93 0.005 165 / 11%);
+  --input: oklch(0.93 0.005 165 / 16%);
+  --ring: oklch(0.74 0.14 163);
 }
 
 @theme inline {

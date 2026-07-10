@@ -13,9 +13,9 @@ const RADIUS = 200 // corner radius of the tile
 const CX = S / 2
 const CY = S / 2
 
-// Precision-instrument brand: warm graphite tile, signal-amber glyph.
-const G0 = [0x2e, 0x2b, 0x27] // graphite top-left
-const G1 = [0x17, 0x15, 0x12] // near-black bottom-right
+// Precision-instrument brand: cool graphite tile, emerald glyph.
+const G0 = [0x27, 0x2c, 0x29] // graphite top-left
+const G1 = [0x12, 0x17, 0x14] // near-black bottom-right
 
 const smooth = (d, feather = 1.5) => Math.min(1, Math.max(0, 0.5 - d / feather))
 
@@ -40,8 +40,8 @@ for (let y = 0; y < S; y++) {
     let g = G0[1] + (G1[1] - G0[1]) * t
     let b = G0[2] + (G1[2] - G0[2]) * t
 
-    // Aperture glyph: ring + center dot, signal amber.
-    const A = [0xf5, 0xa6, 0x23] // amber
+    // Aperture glyph: ring + center dot, emerald.
+    const A = [0x17, 0xc8, 0x8a] // emerald
     const d = Math.hypot(x - CX, y - CY)
     const ring = Math.min(smooth(d - 300), smooth(216 - d)) // 216..300 band
     const dot = smooth(d - 120)

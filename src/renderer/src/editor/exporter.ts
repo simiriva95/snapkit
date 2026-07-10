@@ -24,8 +24,8 @@ export interface StyledOptions {
  * Unknown stored ids fall back to the first entry, so renames self-migrate.
  */
 export const STYLED_TEMPLATES = [
-  { id: 'ember', label: 'Ember', gradient: ['#f59e0b', '#c2410c'] },
-  { id: 'graphite', label: 'Graphite', gradient: ['#3f3c38', '#191713'] },
+  { id: 'emerald', label: 'Emerald', gradient: ['#10b981', '#065f46'] },
+  { id: 'graphite', label: 'Graphite', gradient: ['#3a3f3c', '#131715'] },
   { id: 'steel', label: 'Steel', gradient: ['#64748b', '#1e293b'] },
   { id: 'paper', label: 'Paper', gradient: ['#faf6ef', '#e7dfd2'] }
 ] as const
