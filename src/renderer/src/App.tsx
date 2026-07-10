@@ -147,16 +147,15 @@ function App(): React.JSX.Element {
       <main className="flex flex-1 flex-col justify-center gap-8 px-10">
         {/* Brand mark: the aperture glyph, drawn — not an icon-font blob. */}
         <div className="flex items-center gap-4">
+          {/* Brand glyph: viewfinder crop marks + capture dot (same as app icon). */}
           <svg viewBox="0 0 40 40" className="size-11 shrink-0" aria-hidden>
-            <circle
-              cx="20"
-              cy="20"
-              r="13.5"
-              fill="none"
-              stroke="var(--primary)"
-              strokeWidth="3.5"
-            />
-            <circle cx="20" cy="20" r="4.5" fill="var(--primary)" />
+            <g stroke="var(--primary)" strokeWidth="3.2" strokeLinecap="round" fill="none">
+              <path d="M8 14v-2a4 4 0 0 1 4-4h2" />
+              <path d="M26 8h2a4 4 0 0 1 4 4v2" />
+              <path d="M32 26v2a4 4 0 0 1-4 4h-2" />
+              <path d="M14 32h-2a4 4 0 0 1-4-4v-2" />
+            </g>
+            <circle cx="20" cy="20" r="3.6" fill="var(--primary)" />
           </svg>
           <div>
             <h1 className="text-[22px] leading-7 font-semibold tracking-tight">Snapkit</h1>

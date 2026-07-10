@@ -7,16 +7,25 @@ import { deflateSync } from 'node:zlib'
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-/** Aperture glyph alpha at a point, in a unit square [0..1]x[0..1]. */
+/** Viewfinder crop-marks + dot alpha at a point in a unit square (brand glyph). */
 function glyphAlpha(u, v) {
-  const d = Math.hypot(u - 0.5, v - 0.5) // 0..~0.707
-  // ring band + center dot, in unit-space radii
-  const RING_OUT = 0.42
-  const RING_IN = 0.29
-  const DOT = 0.15
-  if (d <= DOT) return 1
-  if (d >= RING_IN && d <= RING_OUT) return 1
-  return 0
+  const H = 0.42 // half-size of the capture frame
+  const R = 0.1 // corner radius
+  const T = 0.15 // stroke thickness (bold — it must survive 16px)
+  const ARM = 0.26 // corner arm length
+  const DOT = 0.13 // capture dot radius
+
+  const ax = Math.abs(u - 0.5)
+  const ay = Math.abs(v - 0.5)
+
+  if (Math.hypot(ax, ay) <= DOT) return 1
+
+  const dx = ax - (H - R)
+  const dy = ay - (H - R)
+  const outline = Math.hypot(Math.max(dx, 0), Math.max(dy, 0)) + Math.min(Math.max(dx, dy), 0) - R
+  const onBand = Math.abs(outline) <= T / 2
+  const inCorner = Math.min(ax, ay) >= H - ARM
+  return onBand && inCorner ? 1 : 0
 }
 
 /** Render size x size RGBA (black + alpha mask) with 8x supersampling. */

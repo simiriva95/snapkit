@@ -40,12 +40,27 @@ for (let y = 0; y < S; y++) {
     let g = G0[1] + (G1[1] - G0[1]) * t
     let b = G0[2] + (G1[2] - G0[2]) * t
 
-    // Aperture glyph: ring + center dot, emerald.
+    // Viewfinder glyph: four crop-mark corners + capture dot, emerald.
     const A = [0x17, 0xc8, 0x8a] // emerald
-    const d = Math.hypot(x - CX, y - CY)
-    const ring = Math.min(smooth(d - 300), smooth(216 - d)) // 216..300 band
-    const dot = smooth(d - 120)
-    const glyph = Math.max(Math.max(0, ring), Math.max(0, dot))
+    const H = 270 // half-size of the capture frame
+    const CR = 64 // corner radius
+    const T = 66 // stroke thickness
+    const ARM = 168 // corner arm length
+    const DOT = 78 // capture dot radius
+
+    // Rounded-square outline distance (0 on the path).
+    const dx = Math.abs(x - CX) - (H - CR)
+    const dy = Math.abs(y - CY) - (H - CR)
+    const outline =
+      Math.hypot(Math.max(dx, 0), Math.max(dy, 0)) + Math.min(Math.max(dx, dy), 0) - CR
+    const band = smooth(Math.abs(outline) - T / 2)
+    // Keep only the corner segments (crop marks, sharp cut ends): near a
+    // corner, BOTH axes are far from the center lines.
+    const inCorner = Math.min(Math.abs(x - CX), Math.abs(y - CY)) >= H - ARM ? 1 : 0
+    const marks = band * inCorner
+
+    const dot = smooth(Math.hypot(x - CX, y - CY) - DOT)
+    const glyph = Math.max(Math.max(0, marks), Math.max(0, dot))
     if (glyph > 0) {
       r = r + (A[0] - r) * glyph
       g = g + (A[1] - g) * glyph
