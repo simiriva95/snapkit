@@ -1,39 +1,44 @@
-// Generates resources/tray-iconTemplate.png — a 32x32 black "aperture" glyph
-// with an alpha mask. macOS treats a *Template.png as a monochrome mask that
-// adapts to light/dark menu bars. No image deps: hand-rolled PNG encoder.
-// ponytail: placeholder art; swap in per-OS designed icons at M5 if desired.
+// Generates the menu-bar tray icon: resources/tray-iconTemplate.png (16px)
+// + tray-iconTemplate@2x.png (32px). Electron auto-picks the @2x variant on
+// HiDPI. macOS treats *Template.png as a monochrome alpha mask that adapts
+// to light/dark menu bars.
+// Rendered with 8x supersampling for clean edges at menu-bar size.
 import { deflateSync } from 'node:zlib'
 import { writeFileSync, mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const W = 32
-const H = 32
-const px = Buffer.alloc(W * H * 4, 0)
-const cx = 15.5
-const cy = 15.5
+/** Aperture glyph alpha at a point, in a unit square [0..1]x[0..1]. */
+function glyphAlpha(u, v) {
+  const d = Math.hypot(u - 0.5, v - 0.5) // 0..~0.707
+  // ring band + center dot, in unit-space radii
+  const RING_OUT = 0.42
+  const RING_IN = 0.29
+  const DOT = 0.15
+  if (d <= DOT) return 1
+  if (d >= RING_IN && d <= RING_OUT) return 1
+  return 0
+}
 
-for (let y = 0; y < H; y++) {
-  for (let x = 0; x < W; x++) {
-    const d = Math.hypot(x - cx, y - cy)
-    let a = 0
-    if (d <= 3) a = 255 // center dot
-    else if (d >= 6 && d <= 11) a = 255 // outer ring
-    else if ((d > 3 && d < 4) || (d > 5 && d < 6) || (d > 11 && d < 12)) a = 140 // 1px feather
-    if (a) {
-      const i = (y * W + x) * 4
-      px[i + 3] = a // RGB stays 0 (black); only alpha carries the shape
+/** Render size x size RGBA (black + alpha mask) with 8x supersampling. */
+function render(size) {
+  const SS = 8
+  const px = Buffer.alloc(size * size * 4, 0)
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let acc = 0
+      for (let sy = 0; sy < SS; sy++) {
+        for (let sx = 0; sx < SS; sx++) {
+          const u = (x + (sx + 0.5) / SS) / size
+          const v = (y + (sy + 0.5) / SS) / size
+          acc += glyphAlpha(u, v)
+        }
+      }
+      const a = Math.round((acc / (SS * SS)) * 255)
+      if (a > 0) px[(y * size + x) * 4 + 3] = a // RGB stays 0 (black mask)
     }
   }
+  return px
 }
-
-// Raw image: each scanline prefixed with filter byte 0.
-const raw = Buffer.alloc(H * (W * 4 + 1))
-for (let y = 0; y < H; y++) {
-  raw[y * (W * 4 + 1)] = 0
-  px.copy(raw, y * (W * 4 + 1) + 1, y * W * 4, (y + 1) * W * 4)
-}
-const idat = deflateSync(raw)
 
 const crcTable = (() => {
   const t = new Array(256)
@@ -60,20 +65,28 @@ function chunk(type, data) {
   return Buffer.concat([len, t, data, crc])
 }
 
-const sig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
-const ihdr = Buffer.alloc(13)
-ihdr.writeUInt32BE(W, 0)
-ihdr.writeUInt32BE(H, 4)
-ihdr[8] = 8 // bit depth
-ihdr[9] = 6 // color type: RGBA
-const png = Buffer.concat([
-  sig,
-  chunk('IHDR', ihdr),
-  chunk('IDAT', idat),
-  chunk('IEND', Buffer.alloc(0))
-])
+function encodePng(px, size) {
+  const raw = Buffer.alloc(size * (size * 4 + 1))
+  for (let y = 0; y < size; y++) {
+    raw[y * (size * 4 + 1)] = 0
+    px.copy(raw, y * (size * 4 + 1) + 1, y * size * 4, (y + 1) * size * 4)
+  }
+  const sig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
+  const ihdr = Buffer.alloc(13)
+  ihdr.writeUInt32BE(size, 0)
+  ihdr.writeUInt32BE(size, 4)
+  ihdr[8] = 8
+  ihdr[9] = 6
+  return Buffer.concat([
+    sig,
+    chunk('IHDR', ihdr),
+    chunk('IDAT', deflateSync(raw, { level: 9 })),
+    chunk('IEND', Buffer.alloc(0))
+  ])
+}
 
-const out = fileURLToPath(new URL('../resources/tray-iconTemplate.png', import.meta.url))
-mkdirSync(dirname(out), { recursive: true })
-writeFileSync(out, png)
-console.log('wrote', out, png.length, 'bytes')
+const outDir = fileURLToPath(new URL('../resources', import.meta.url))
+mkdirSync(outDir, { recursive: true })
+writeFileSync(`${outDir}/tray-iconTemplate.png`, encodePng(render(16), 16))
+writeFileSync(`${outDir}/tray-iconTemplate@2x.png`, encodePng(render(32), 32))
+console.log('wrote tray-iconTemplate.png (16) + @2x (32)')

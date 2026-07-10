@@ -100,6 +100,11 @@ if (!gotLock) {
   })
 
   app.whenReady().then(() => {
+    // Dev runs the stock Electron binary → give the Dock our icon anyway.
+    // Packaged builds carry the real .icns and skip this.
+    if (!app.isPackaged && process.platform === 'darwin') {
+      app.dock?.setIcon(join(app.getAppPath(), 'build/icon.png'))
+    }
     if (!RENDERER_DEV_URL) serveRenderer()
     applyProductionCsp()
     registerIpc()
