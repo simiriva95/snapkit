@@ -142,8 +142,8 @@ function Editor(): React.JSX.Element {
         style={dragRegion}
         className="flex h-11 shrink-0 items-center justify-between border-b px-3 pl-20"
       >
-        <span className="text-xs font-medium tabular-nums text-muted-foreground">
-          Capture · {image.width} × {image.height}
+        <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+          {image.width}×{image.height}
         </span>
         <div style={noDrag} className="flex items-center gap-1">
           <Button

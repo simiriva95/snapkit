@@ -144,73 +144,97 @@ function App(): React.JSX.Element {
         </div>
       </header>
 
-      <main className="flex flex-1 flex-col items-center justify-center gap-6 px-8 text-center">
-        <div className="flex size-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-          <Camera className="size-8" />
-        </div>
-
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Snapkit</h1>
-          <p className="text-sm text-muted-foreground">Capture. Redact. Ship — safely.</p>
-        </div>
-
-        <div className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground">
-          <ShieldCheck className="size-3.5" />
-          Your screenshots never leave this device
-        </div>
-
-        <div className="flex flex-col items-center gap-2">
-          <Button style={noDrag} onClick={() => window.api.startCapture()}>
-            <Camera />
-            Capture area
-            <kbd className="rounded bg-primary-foreground/15 px-1.5 py-0.5 text-[11px] font-normal">
-              {shortcutLabel}
-            </kbd>
-          </Button>
-          <div style={noDrag} className="flex flex-wrap justify-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.api.startCapture('fullscreen')}
-            >
-              <Monitor />
-              Full screen
-              <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-normal">
-                {formatAccelerator(prefs?.fullscreenShortcut ?? 'CommandOrControl+Shift+1')}
-              </kbd>
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => window.api.startCapture('window')}>
-              <AppWindow />
-              Window
-              <kbd className="rounded bg-muted px-1 py-0.5 text-[10px] font-normal">
-                {formatAccelerator(prefs?.windowShortcut ?? 'CommandOrControl+Shift+3')}
-              </kbd>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              title="Select an area, scroll the content, frames get stitched into one tall image"
-              onClick={() => window.api.startCapture('scrolling')}
-            >
-              <MoveVertical />
-              Scrolling
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              title="Record an area of the screen (WebM or GIF — see Preferences)"
-              onClick={() => window.api.startCapture('record')}
-            >
-              <Video />
-              Record
-            </Button>
+      <main className="flex flex-1 flex-col justify-center gap-8 px-10">
+        {/* Brand mark: the aperture glyph, drawn — not an icon-font blob. */}
+        <div className="flex items-center gap-4">
+          <svg viewBox="0 0 40 40" className="size-11 shrink-0" aria-hidden>
+            <circle
+              cx="20"
+              cy="20"
+              r="13.5"
+              fill="none"
+              stroke="var(--primary)"
+              strokeWidth="3.5"
+            />
+            <circle cx="20" cy="20" r="4.5" fill="var(--primary)" />
+          </svg>
+          <div>
+            <h1 className="text-[22px] leading-7 font-semibold tracking-tight">Snapkit</h1>
+            <p className="text-sm text-muted-foreground">Capture. Redact. Ship — safely.</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
-          {version && <span>v{version}</span>}
-          {/* Free build: badge only celebrates a license, no trial nagging. */}
-          {license?.kind === 'licensed' && <span className="text-green-500">· Licensed</span>}
+        <div style={noDrag} className="flex flex-col gap-2">
+          <button
+            onClick={() => window.api.startCapture()}
+            className="flex h-11 items-center justify-between rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            <span className="flex items-center gap-2.5">
+              <Camera className="size-4" />
+              Capture area
+            </span>
+            <kbd className="text-[11px] opacity-70">{shortcutLabel}</kbd>
+          </button>
+
+          <div className="grid grid-cols-2 gap-2">
+            {(
+              [
+                {
+                  icon: Monitor,
+                  label: 'Full screen',
+                  kbd: formatAccelerator(prefs?.fullscreenShortcut ?? 'CommandOrControl+Shift+1'),
+                  mode: 'fullscreen' as const,
+                  title: undefined
+                },
+                {
+                  icon: AppWindow,
+                  label: 'Window',
+                  kbd: formatAccelerator(prefs?.windowShortcut ?? 'CommandOrControl+Shift+3'),
+                  mode: 'window' as const,
+                  title: undefined
+                },
+                {
+                  icon: MoveVertical,
+                  label: 'Scrolling',
+                  kbd: undefined,
+                  mode: 'scrolling' as const,
+                  title:
+                    'Select an area, scroll the content, frames get stitched into one tall image'
+                },
+                {
+                  icon: Video,
+                  label: 'Record',
+                  kbd: undefined,
+                  mode: 'record' as const,
+                  title: 'Record an area of the screen (WebM or GIF — see Preferences)'
+                }
+              ] as const
+            ).map(({ icon: Icon, label, kbd, mode, title }) => (
+              <button
+                key={label}
+                title={title}
+                onClick={() => window.api.startCapture(mode)}
+                className="flex h-10 items-center justify-between rounded-lg border bg-card px-3 text-[13px] text-foreground outline-none transition-colors hover:border-ring/40 hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              >
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <Icon className="size-3.5" />
+                  <span className="text-foreground">{label}</span>
+                </span>
+                {kbd && <kbd className="text-[10px] text-muted-foreground/70">{kbd}</kbd>}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between border-t pt-4 text-xs text-muted-foreground/70">
+          <span className="flex items-center gap-1.5">
+            <ShieldCheck className="size-3.5 text-primary/80" />
+            Never leaves this device
+          </span>
+          <span className="font-mono text-[10px] tabular-nums">
+            {version && `v${version}`}
+            {license?.kind === 'licensed' && '  ·  licensed'}
+          </span>
         </div>
       </main>
 

@@ -19,12 +19,15 @@ export interface StyledOptions {
   gradient?: [string, string]
 }
 
-/** Branded backdrop presets for "styled copy" (pref: styledTemplate). */
+/**
+ * Branded backdrop presets for "styled copy" (pref: styledTemplate).
+ * Unknown stored ids fall back to the first entry, so renames self-migrate.
+ */
 export const STYLED_TEMPLATES = [
-  { id: 'indigo', label: 'Indigo', gradient: ['#6366f1', '#a855f7'] },
-  { id: 'sunset', label: 'Sunset', gradient: ['#f97316', '#ef4444'] },
-  { id: 'ocean', label: 'Ocean', gradient: ['#06b6d4', '#3b82f6'] },
-  { id: 'graphite', label: 'Graphite', gradient: ['#374151', '#111827'] }
+  { id: 'ember', label: 'Ember', gradient: ['#f59e0b', '#c2410c'] },
+  { id: 'graphite', label: 'Graphite', gradient: ['#3f3c38', '#191713'] },
+  { id: 'steel', label: 'Steel', gradient: ['#64748b', '#1e293b'] },
+  { id: 'paper', label: 'Paper', gradient: ['#faf6ef', '#e7dfd2'] }
 ] as const
 
 export type StyledTemplateId = (typeof STYLED_TEMPLATES)[number]['id']

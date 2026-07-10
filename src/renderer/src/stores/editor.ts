@@ -101,7 +101,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setHighlightWidth: (highlightWidth) => set({ highlightWidth }),
   setFontSize: (fontSize) => set({ fontSize }),
   setPixelSize: (pixelSize) => set({ pixelSize }),
-  select: (selectedId) => set({ selectedId }),
+  select: (selectedId) => {
+    // A selection change ends any in-flight gesture: drop the stale snapshot
+    // or the next commit would fold unrelated changes into one undo step.
+    pending = null
+    set({ selectedId })
+  },
 
   add: (anno) => {
     const h = get().history
@@ -175,10 +180,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   undo: () => {
+    pending = null
     const h = get().history
     if (canUndo(h)) set({ history: undo(h), selectedId: null })
   },
   redo: () => {
+    pending = null
     const h = get().history
     if (canRedo(h)) set({ history: redo(h), selectedId: null })
   },

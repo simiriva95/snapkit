@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { cn } from '@renderer/lib/utils'
@@ -21,13 +22,16 @@ function Slider({
   value,
   min,
   max,
-  onChange
+  onChange,
+  onCommit
 }: {
   label: string
   value: number
   min: number
   max: number
   onChange: (v: number) => void
+  /** Fired once when the drag ends — the moment to push ONE history entry. */
+  onCommit?: () => void
 }): React.JSX.Element {
   return (
     <label className="flex flex-col gap-1.5">
@@ -41,6 +45,9 @@ function Slider({
         max={max}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
+        onPointerUp={onCommit}
+        onKeyUp={onCommit}
+        onBlur={onCommit}
         className="accent-primary"
       />
     </label>
@@ -60,6 +67,20 @@ function PropertiesPanel(): React.JSX.Element {
   const setColor = (c: string): void => {
     if (selected) store.getState().update(selected.id, { color: c }, true)
     else s.setColor(c)
+  }
+
+  // Sliders update live WITHOUT touching history; one entry lands on release.
+  // (Committing every tick made undo step back pixel by pixel.)
+  const sliderDirty = useRef<string | null>(null)
+  const liveUpdate = (id: string, patch: Partial<Annotation>): void => {
+    sliderDirty.current = id
+    store.getState().update(id, patch, false)
+  }
+  const commitSlider = (): void => {
+    const id = sliderDirty.current
+    if (!id) return
+    sliderDirty.current = null
+    store.getState().update(id, {}, true)
   }
 
   const STROKE_TYPES = ['arrow', 'line', 'pen', 'rect'] as const
@@ -88,9 +109,9 @@ function PropertiesPanel(): React.JSX.Element {
   const pixelValue = blurTarget?.pixelSize ?? s.pixelSize
 
   return (
-    <aside aria-label="Properties" className="flex w-52 flex-col gap-5 border-l p-3">
-      <div className="text-xs font-medium text-muted-foreground">
-        {selected ? `Selected: ${selected.type}` : 'Tool defaults'}
+    <aside aria-label="Properties" className="flex w-52 flex-col gap-5 border-l bg-card/50 p-3">
+      <div className="text-[10px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
+        {selected ? selected.type : 'Tool defaults'}
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -104,9 +125,9 @@ function PropertiesPanel(): React.JSX.Element {
               aria-checked={color === c}
               aria-label={c}
               className={cn(
-                'size-8 rounded-md border transition-transform outline-none',
-                'focus-visible:ring-ring/50 focus-visible:ring-[3px]',
-                color === c && 'scale-110 ring-2 ring-ring'
+                'size-8 rounded-md border border-foreground/10 transition-shadow outline-none',
+                'focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                color === c && 'ring-2 ring-ring ring-offset-2 ring-offset-background'
               )}
               style={{ backgroundColor: c }}
             />
@@ -121,10 +142,9 @@ function PropertiesPanel(): React.JSX.Element {
           min={1}
           max={16}
           onChange={(v) =>
-            strokeTarget
-              ? store.getState().update(strokeTarget.id, { strokeWidth: v }, true)
-              : s.setStrokeWidth(v)
+            strokeTarget ? liveUpdate(strokeTarget.id, { strokeWidth: v }) : s.setStrokeWidth(v)
           }
+          onCommit={commitSlider}
         />
       )}
 
@@ -136,9 +156,10 @@ function PropertiesPanel(): React.JSX.Element {
           max={48}
           onChange={(v) =>
             highlightTarget
-              ? store.getState().update(highlightTarget.id, { strokeWidth: v }, true)
+              ? liveUpdate(highlightTarget.id, { strokeWidth: v })
               : s.setHighlightWidth(v)
           }
+          onCommit={commitSlider}
         />
       )}
 
@@ -149,10 +170,9 @@ function PropertiesPanel(): React.JSX.Element {
           min={10}
           max={96}
           onChange={(v) =>
-            textTarget
-              ? store.getState().update(textTarget.id, { fontSize: v }, true)
-              : s.setFontSize(v)
+            textTarget ? liveUpdate(textTarget.id, { fontSize: v }) : s.setFontSize(v)
           }
+          onCommit={commitSlider}
         />
       )}
 
@@ -163,10 +183,9 @@ function PropertiesPanel(): React.JSX.Element {
           min={4}
           max={48}
           onChange={(v) =>
-            blurTarget
-              ? store.getState().update(blurTarget.id, { pixelSize: v }, true)
-              : s.setPixelSize(v)
+            blurTarget ? liveUpdate(blurTarget.id, { pixelSize: v }) : s.setPixelSize(v)
           }
+          onCommit={commitSlider}
         />
       )}
 

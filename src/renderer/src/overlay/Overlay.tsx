@@ -63,18 +63,19 @@ function Overlay(): React.JSX.Element {
 
       {rect ? (
         <div
-          className="absolute border border-white/90"
+          className="absolute"
           style={{
             left: rect.x,
             top: rect.y,
             width: rect.width,
             height: rect.height,
-            // Dim everything around the selection without extra elements.
-            boxShadow: '0 0 0 100000px rgba(0, 0, 0, 0.45)'
+            // Signal-amber selection edge + dim veil around it.
+            border: '1.5px solid oklch(0.78 0.15 65)',
+            boxShadow: '0 0 0 100000px rgba(12, 10, 6, 0.45)'
           }}
         >
-          <span className="absolute -bottom-7 left-0 rounded bg-black/80 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white">
-            {rect.width} × {rect.height}
+          <span className="absolute -bottom-7 left-0 rounded bg-black/85 px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-[oklch(0.85_0.1_70)]">
+            {rect.width}×{rect.height}
           </span>
         </div>
       ) : (
@@ -82,8 +83,8 @@ function Overlay(): React.JSX.Element {
       )}
 
       {!start && (
-        <div className="absolute left-1/2 top-8 -translate-x-1/2 rounded-md bg-black/70 px-3 py-1.5 text-xs text-white/90">
-          Drag to select an area — Esc to cancel
+        <div className="absolute left-1/2 top-8 -translate-x-1/2 rounded-md border border-white/10 bg-black/75 px-3 py-1.5 text-xs text-white/85">
+          Drag to select an area — <kbd className="text-white/60">Esc</kbd> to cancel
         </div>
       )}
     </div>

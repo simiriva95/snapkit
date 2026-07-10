@@ -13,9 +13,9 @@ const RADIUS = 200 // corner radius of the tile
 const CX = S / 2
 const CY = S / 2
 
-// Brand gradient — same stops as the styled-copy export backdrop.
-const G0 = [0x63, 0x66, 0xf1] // #6366f1
-const G1 = [0xa8, 0x55, 0xf7] // #a855f7
+// Precision-instrument brand: warm graphite tile, signal-amber glyph.
+const G0 = [0x2e, 0x2b, 0x27] // graphite top-left
+const G1 = [0x17, 0x15, 0x12] // near-black bottom-right
 
 const smooth = (d, feather = 1.5) => Math.min(1, Math.max(0, 0.5 - d / feather))
 
@@ -40,15 +40,16 @@ for (let y = 0; y < S; y++) {
     let g = G0[1] + (G1[1] - G0[1]) * t
     let b = G0[2] + (G1[2] - G0[2]) * t
 
-    // Aperture glyph: ring + center dot, white.
+    // Aperture glyph: ring + center dot, signal amber.
+    const A = [0xf5, 0xa6, 0x23] // amber
     const d = Math.hypot(x - CX, y - CY)
     const ring = Math.min(smooth(d - 300), smooth(216 - d)) // 216..300 band
     const dot = smooth(d - 120)
     const glyph = Math.max(Math.max(0, ring), Math.max(0, dot))
     if (glyph > 0) {
-      r = r + (255 - r) * glyph
-      g = g + (255 - g) * glyph
-      b = b + (255 - b) * glyph
+      r = r + (A[0] - r) * glyph
+      g = g + (A[1] - g) * glyph
+      b = b + (A[2] - b) * glyph
     }
 
     const i = (y * S + x) * 4
