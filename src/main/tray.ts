@@ -8,6 +8,8 @@ export interface TrayActions {
   captureArea: () => void
   captureFullscreen: () => void
   captureWindow: () => void
+  captureScrolling: () => void
+  recordArea: () => void
   quit: () => void
 }
 
@@ -33,6 +35,8 @@ function buildMenu(shortcuts: TrayShortcuts): Menu {
       accelerator: shortcuts.windowShortcut,
       click: actions.captureWindow
     },
+    { label: 'Scrolling Capture', click: actions.captureScrolling },
+    { label: 'Record Area…', click: actions.recordArea },
     { type: 'separator' },
     { label: 'Open Snapkit', click: actions.show },
     { type: 'separator' },

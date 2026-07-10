@@ -19,6 +19,8 @@ export interface Prefs {
   autoRedactOnCapture: boolean
   /** OCR languages (tesseract codes). Bundled: eng, ita, deu, fra, spa. */
   ocrLanguages: string[]
+  /** Screen recording output. GIF is capped at 30s, WebM at 5min. */
+  recordFormat: 'webm' | 'gif'
   onboardingDone: boolean
 }
 
@@ -32,6 +34,7 @@ export const DEFAULT_PREFS: Prefs = {
   styledTemplate: 'indigo',
   autoRedactOnCapture: false,
   ocrLanguages: ['eng'],
+  recordFormat: 'webm',
   onboardingDone: false
 }
 

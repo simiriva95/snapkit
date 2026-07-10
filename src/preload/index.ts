@@ -3,12 +3,24 @@ import {
   IpcChannels,
   type CaptureMode,
   type CapturePayload,
+  type ControlApi,
+  type ControlMode,
   type OverlayApi,
   type PickerApi,
+  type RecordJob,
+  type RecorderApi,
   type Rect,
+  type ScrollFramesPayload,
   type SnapkitApi,
   type WindowSource
 } from '@shared/ipc'
+
+/** Subscribe helper: ipcRenderer.on with unsubscribe. */
+function on<T>(channel: string, cb: (payload: T) => void): () => void {
+  const listener = (_e: IpcRendererEvent, payload: T): void => cb(payload)
+  ipcRenderer.on(channel, listener)
+  return () => ipcRenderer.removeListener(channel, listener)
+}
 
 const api: SnapkitApi = {
   getVersion: () => ipcRenderer.invoke(IpcChannels.appVersion),
@@ -25,7 +37,20 @@ const api: SnapkitApi = {
   setPrefs: (patch) => ipcRenderer.invoke(IpcChannels.prefsSet, patch),
   pickExportDir: () => ipcRenderer.invoke(IpcChannels.prefsPickDir),
   getLicense: () => ipcRenderer.invoke(IpcChannels.licenseGet),
-  activateLicense: (key) => ipcRenderer.invoke(IpcChannels.licenseActivate, key)
+  activateLicense: (key) => ipcRenderer.invoke(IpcChannels.licenseActivate, key),
+  onScrollFrames: (cb) => on<ScrollFramesPayload>(IpcChannels.scrollFrames, cb)
+}
+
+const controlApi: ControlApi = {
+  onInit: (cb) => on<{ mode: ControlMode }>(IpcChannels.controlInit, cb),
+  onStatus: (cb) => on<{ text: string }>(IpcChannels.controlStatus, cb),
+  action: (action) => ipcRenderer.send(IpcChannels.controlAction, action)
+}
+
+const recorderApi: RecorderApi = {
+  onStart: (cb) => on<RecordJob>(IpcChannels.recordStart, cb),
+  onStop: (cb) => on<void>(IpcChannels.recordStop, () => cb()),
+  sendResult: (data, ext) => ipcRenderer.send(IpcChannels.recordResult, data, ext)
 }
 
 const overlayApi: OverlayApi = {
@@ -55,13 +80,23 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('api', api)
     contextBridge.exposeInMainWorld('overlayApi', overlayApi)
     contextBridge.exposeInMainWorld('pickerApi', pickerApi)
+    contextBridge.exposeInMainWorld('controlApi', controlApi)
+    contextBridge.exposeInMainWorld('recorderApi', recorderApi)
   } catch (error) {
     console.error('[preload] failed to expose api:', error)
   }
 } else {
   // Fallback (should not happen: contextIsolation is enforced in main).
-  const w = window as unknown as { api: SnapkitApi; overlayApi: OverlayApi; pickerApi: PickerApi }
+  const w = window as unknown as {
+    api: SnapkitApi
+    overlayApi: OverlayApi
+    pickerApi: PickerApi
+    controlApi: ControlApi
+    recorderApi: RecorderApi
+  }
   w.api = api
   w.overlayApi = overlayApi
   w.pickerApi = pickerApi
+  w.controlApi = controlApi
+  w.recorderApi = recorderApi
 }

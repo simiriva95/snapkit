@@ -1,11 +1,22 @@
 import { useEffect, useState } from 'react'
-import { AppWindow, Camera, Minus, Monitor, Settings, ShieldCheck } from 'lucide-react'
+import {
+  AppWindow,
+  Camera,
+  Loader2,
+  Minus,
+  Monitor,
+  MoveVertical,
+  Settings,
+  ShieldCheck,
+  Video
+} from 'lucide-react'
 import type { LicenseStatus } from '@shared/license'
 import { Button } from '@renderer/components/ui/button'
 import { useCaptureStore } from '@renderer/stores/capture'
 import { usePrefsStore } from '@renderer/stores/prefs'
 import { dragRegion, noDrag } from '@renderer/lib/titlebar'
 import { formatAccelerator } from '@renderer/lib/accelerator'
+import { stitchFrames } from '@renderer/editor/stitch'
 import Editor from './Editor'
 import PrefsPanel from './PrefsPanel'
 
@@ -61,6 +72,27 @@ function App(): React.JSX.Element {
 
   useEffect(
     () => window.api.onCapture((payload) => useCaptureStore.getState().setImage(payload)),
+    []
+  )
+
+  // Scrolling capture: frames arrive from main, stitching happens here.
+  const [stitching, setStitching] = useState(false)
+  useEffect(
+    () =>
+      window.api.onScrollFrames((payload) => {
+        setStitching(true)
+        stitchFrames(payload.frames)
+          .then(({ dataUrl, width, height }) => {
+            const dipHeight = Math.round(height * (payload.dipWidth / width))
+            useCaptureStore.getState().setImage({
+              dataUrl,
+              width: payload.dipWidth,
+              height: dipHeight
+            })
+          })
+          .catch((err) => console.error('[stitch]', err))
+          .finally(() => setStitching(false))
+      }),
     []
   )
 
@@ -135,7 +167,7 @@ function App(): React.JSX.Element {
               {shortcutLabel}
             </kbd>
           </Button>
-          <div style={noDrag} className="flex gap-2">
+          <div style={noDrag} className="flex flex-wrap justify-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -154,6 +186,24 @@ function App(): React.JSX.Element {
                 {formatAccelerator(prefs?.windowShortcut ?? 'CommandOrControl+Shift+3')}
               </kbd>
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              title="Select an area, scroll the content, frames get stitched into one tall image"
+              onClick={() => window.api.startCapture('scrolling')}
+            >
+              <MoveVertical />
+              Scrolling
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              title="Record an area of the screen (WebM or GIF — see Preferences)"
+              onClick={() => window.api.startCapture('record')}
+            >
+              <Video />
+              Record
+            </Button>
           </div>
         </div>
 
@@ -163,6 +213,15 @@ function App(): React.JSX.Element {
           {license?.kind === 'licensed' && <span className="text-green-500">· Licensed</span>}
         </div>
       </main>
+
+      {stitching && (
+        <div className="absolute inset-x-0 bottom-6 z-20 flex justify-center">
+          <span className="flex items-center gap-2 rounded-md border bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-lg">
+            <Loader2 className="size-3.5 animate-spin" />
+            Stitching frames…
+          </span>
+        </div>
+      )}
 
       {prefs && !prefs.onboardingDone && (
         <Onboarding onDone={() => void savePrefs({ onboardingDone: true })} />

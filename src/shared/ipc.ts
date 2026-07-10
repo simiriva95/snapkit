@@ -32,7 +32,21 @@ export const IpcChannels = {
   pickerInit: 'picker:init',
   /** picker renderer → main: chosen window source id. */
   pickerSelect: 'picker:select',
-  pickerCancel: 'picker:cancel'
+  pickerCancel: 'picker:cancel',
+  /** main → control bar: which session it belongs to. */
+  controlInit: 'control:init',
+  /** main → control bar: live status text (frame count / elapsed). */
+  controlStatus: 'control:status',
+  /** control bar → main: user pressed done/cancel. */
+  controlAction: 'control:action',
+  /** main → editor renderer: scrolling capture frames ready to stitch. */
+  scrollFrames: 'scroll:frames',
+  /** main → recorder renderer: start recording this region. */
+  recordStart: 'record:start',
+  /** main → recorder renderer: stop and hand back the file. */
+  recordStop: 'record:stop',
+  /** recorder renderer → main: encoded recording bytes. */
+  recordResult: 'record:result'
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
@@ -41,7 +55,29 @@ export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
 export const DEFAULT_CAPTURE_SHORTCUT = 'CommandOrControl+Shift+2'
 
 /** Capture entry points. */
-export type CaptureMode = 'area' | 'fullscreen' | 'window'
+export type CaptureMode = 'area' | 'fullscreen' | 'window' | 'scrolling' | 'record'
+
+/** What a floating control bar is controlling. */
+export type ControlMode = 'scroll' | 'record'
+
+/** Scrolling capture: frames to stitch, handed to the editor renderer. */
+export interface ScrollFramesPayload {
+  /** Region crops (PNG data URLs, HiDPI px), oldest first. */
+  frames: string[]
+  /** Selection width in CSS px — used to derive display dimensions. */
+  dipWidth: number
+}
+
+/** Recording job sent to the hidden recorder window. */
+export interface RecordJob {
+  /** Selection in display CSS px. */
+  rect: Rect
+  /** DIP size of the display being recorded (maps video px → rect px). */
+  displaySize: { width: number; height: number }
+  format: 'webm' | 'gif'
+  /** Hard stop after this many seconds. */
+  maxSeconds: number
+}
 
 /** One capturable window shown in the picker grid. */
 export interface WindowSource {
@@ -96,6 +132,23 @@ export interface SnapkitApi {
   getLicense: () => Promise<import('./license').LicenseStatus>
   /** Try to activate a license key (validated locally). */
   activateLicense: (key: string) => Promise<import('./license').LicenseActivateResult>
+  /** Scrolling capture finished: frames ready for stitching. Returns unsubscribe. */
+  onScrollFrames: (cb: (payload: ScrollFramesPayload) => void) => () => void
+}
+
+/** The API bridged into the floating control bar window. */
+export interface ControlApi {
+  onInit: (cb: (payload: { mode: ControlMode }) => void) => () => void
+  onStatus: (cb: (payload: { text: string }) => void) => () => void
+  action: (action: 'done' | 'cancel') => void
+}
+
+/** The API bridged into the hidden recorder window. */
+export interface RecorderApi {
+  onStart: (cb: (job: RecordJob) => void) => () => void
+  onStop: (cb: () => void) => () => void
+  /** Hand the encoded bytes back to main for saving. */
+  sendResult: (data: ArrayBuffer, ext: string) => void
 }
 
 /** The API bridged into the selection overlay window. */

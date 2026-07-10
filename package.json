@@ -31,6 +31,7 @@
     "clsx": "^2.1.1",
     "electron-store": "^11.0.2",
     "electron-updater": "^6.8.9",
+    "gifenc": "^1.0.3",
     "konva": "^10.3.0",
     "lucide-react": "^0.545.0",
     "react-konva": "^19.2.5",

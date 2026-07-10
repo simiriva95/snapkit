@@ -39,7 +39,9 @@ export default defineConfig({
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
           overlay: resolve(__dirname, 'src/renderer/overlay.html'),
-          picker: resolve(__dirname, 'src/renderer/picker.html')
+          picker: resolve(__dirname, 'src/renderer/picker.html'),
+          controlbar: resolve(__dirname, 'src/renderer/controlbar.html'),
+          recorder: resolve(__dirname, 'src/renderer/recorder.html')
         }
       }
     },

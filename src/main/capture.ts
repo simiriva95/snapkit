@@ -15,10 +15,13 @@ import {
   type CaptureMode,
   type CapturePayload,
   type Rect,
+  type ScrollFramesPayload,
   type WindowSource
 } from '@shared/ipc'
 import { createOverlay } from './overlay'
 import { createWindowPicker } from './windowPicker'
+import { createControlBar, sendControlStatus } from './controlbar'
+import { startRecording } from './recorder'
 import { flashRegion } from './flash'
 
 /** Window the capture result is delivered to (the editor / main window). */
@@ -38,6 +41,9 @@ interface DisplayEntry {
   overlay: BrowserWindow
 }
 
+/** What the area selection is FOR: plain capture, scroll session, recording. */
+type SelectionPurpose = 'capture' | 'scroll' | 'record'
+
 /** One frozen overlay per display; the first selection wins. */
 interface AreaSession {
   /** Keyed by the overlay's webContents id (correlates IPC sender → display). */
@@ -46,6 +52,7 @@ interface AreaSession {
   restoreMain: boolean
   /** True while we are tearing the overlays down ourselves. */
   closing: boolean
+  purpose: SelectionPurpose
 }
 
 interface PickerSession {
@@ -53,8 +60,24 @@ interface PickerSession {
   restoreMain: boolean
 }
 
+/** A running scrolling-capture: periodic region grabs while the user scrolls. */
+interface ScrollSession {
+  display: Display
+  rect: Rect
+  frames: string[]
+  lastSignature: string
+  timer: NodeJS.Timeout
+  control: BrowserWindow
+  grabbing: boolean
+}
+
+const SCROLL_INTERVAL_MS = 700
+const SCROLL_MAX_FRAMES = 40
+
 let session: AreaSession | null = null
 let pickerSession: PickerSession | null = null
+
+let scrollSession: ScrollSession | null = null
 let busy = false
 
 const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
@@ -71,6 +94,12 @@ export function initCapture(host: EditorHost): void {
   ipcMain.on(IpcChannels.overlayCancel, () => cancelCapture(host))
   ipcMain.on(IpcChannels.pickerSelect, (_event, id: string) => void finishWindowPick(id, host))
   ipcMain.on(IpcChannels.pickerCancel, () => cancelWindowPick(host))
+  ipcMain.on(IpcChannels.controlAction, (event, action: 'done' | 'cancel') => {
+    // Scroll session owns its control bar; recording handles its own in recorder.ts.
+    if (scrollSession && scrollSession.control.webContents.id === event.sender.id) {
+      finishScrollSession(action === 'done', host)
+    }
+  })
 }
 
 export function startCapture(kind: CaptureMode, host: EditorHost): void {
@@ -82,6 +111,12 @@ export function startCapture(kind: CaptureMode, host: EditorHost): void {
       break
     case 'window':
       void startWindowCapture(host)
+      break
+    case 'scrolling':
+      void startAreaCapture(host, 'scroll')
+      break
+    case 'record':
+      void startAreaCapture(host, 'record')
       break
     default:
       void startAreaCapture(host)
@@ -119,7 +154,10 @@ function fail(err: unknown, restoreMain: boolean, host: EditorHost): void {
   )
 }
 
-export async function startAreaCapture(host: EditorHost): Promise<void> {
+export async function startAreaCapture(
+  host: EditorHost,
+  purpose: SelectionPurpose = 'capture'
+): Promise<void> {
   if (busy) return
   busy = true
 
@@ -173,7 +211,7 @@ export async function startAreaCapture(host: EditorHost): Promise<void> {
         'The captured image is empty — the screen may be protected or permission is missing.'
       )
     }
-    session = { entries, restoreMain: prep.restoreMain, closing: false }
+    session = { entries, restoreMain: prep.restoreMain, closing: false, purpose }
   } catch (err) {
     fail(err, prep.restoreMain, host)
   }
@@ -288,6 +326,19 @@ function finishSelection(rect: Rect, host: EditorHost, senderId: number): void {
   const entry = session?.entries.get(senderId)
   if (!session || !entry) return
   const { image, displaySize, displayBounds } = entry
+  const purpose = session.purpose
+
+  // Scroll / record selections don't produce an image now — they hand the
+  // region to their own session.
+  if (purpose !== 'capture') {
+    teardownOverlays()
+    session = null
+    busy = false
+    const display = screen.getDisplayMatching(displayBounds)
+    if (purpose === 'scroll') beginScrollSession(display, rect, host)
+    else startRecording(display, rect)
+    return
+  }
 
   // Selection is in display CSS px; the image may be HiDPI. Use the real
   // ratio instead of trusting scaleFactor (thumbnail size can differ).
@@ -329,6 +380,82 @@ function cancelCapture(host: EditorHost): void {
   session = null
   busy = false
   if (restoreMain) host.peek()?.show()
+}
+
+/** Cheap change-detector so identical frames (no scroll yet) are dropped. */
+function frameSignature(buf: Buffer): string {
+  let acc = buf.length
+  for (let i = 0; i < buf.length; i += 997) acc = (acc * 31 + buf[i]) | 0
+  return String(acc)
+}
+
+function beginScrollSession(display: Display, rect: Rect, host: EditorHost): void {
+  busy = true
+  const control = createControlBar('scroll', {
+    x: display.bounds.x + Math.round(rect.x),
+    y: display.bounds.y + Math.round(rect.y),
+    width: Math.round(rect.width),
+    height: Math.round(rect.height)
+  })
+  control.on('closed', () => {
+    if (scrollSession?.control === control) {
+      clearInterval(scrollSession.timer)
+      scrollSession = null
+      busy = false
+    }
+  })
+
+  const timer = setInterval(() => void grabScrollFrame(display, rect, host), SCROLL_INTERVAL_MS)
+  scrollSession = { display, rect, frames: [], lastSignature: '', timer, control, grabbing: false }
+  // Grab the initial frame right away.
+  void grabScrollFrame(display, rect, host)
+}
+
+async function grabScrollFrame(display: Display, rect: Rect, host: EditorHost): Promise<void> {
+  const s = scrollSession
+  if (!s || s.grabbing) return
+  s.grabbing = true
+  try {
+    const image = await grabDisplay(display)
+    const imgSize = image.getSize()
+    const sx = imgSize.width / display.size.width
+    const sy = imgSize.height / display.size.height
+    const crop = {
+      x: Math.max(0, Math.round(rect.x * sx)),
+      y: Math.max(0, Math.round(rect.y * sy)),
+      width: Math.min(Math.round(rect.width * sx), imgSize.width),
+      height: Math.min(Math.round(rect.height * sy), imgSize.height)
+    }
+    const png = image.crop(crop).toPNG()
+    const signature = frameSignature(png)
+    if (signature !== s.lastSignature) {
+      s.lastSignature = signature
+      s.frames.push(`data:image/png;base64,${png.toString('base64')}`)
+      sendControlStatus(s.control, `${s.frames.length} frame${s.frames.length === 1 ? '' : 's'}`)
+      if (s.frames.length >= SCROLL_MAX_FRAMES) finishScrollSession(true, host)
+    }
+  } catch {
+    // transient grab failure — skip this tick
+  } finally {
+    if (scrollSession) scrollSession.grabbing = false
+  }
+}
+
+function finishScrollSession(deliverFrames: boolean, host: EditorHost): void {
+  const s = scrollSession
+  if (!s) return
+  scrollSession = null
+  clearInterval(s.timer)
+  s.control.destroy()
+  busy = false
+
+  if (deliverFrames && s.frames.length > 0) {
+    const payload: ScrollFramesPayload = { frames: s.frames, dipWidth: Math.round(s.rect.width) }
+    const editor = host.ensure()
+    sendWhenReady(editor, IpcChannels.scrollFrames, payload)
+    editor.show()
+    editor.focus()
+  }
 }
 
 async function grabDisplay(display: Display): Promise<NativeImage> {

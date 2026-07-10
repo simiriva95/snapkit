@@ -7,6 +7,7 @@ import { registerExportIpc } from './export'
 import { getPrefs, registerPrefsIpc, type ShortcutField } from './prefs'
 import { registerLicenseIpc } from './license'
 import { APP_URL, registerAppScheme, serveRenderer } from './protocol'
+import { registerRecorderIpc, setupDisplayMediaHandler } from './recorder'
 import { registerShortcut, unregisterShortcuts } from './shortcuts'
 import { initAutoUpdate } from './updater'
 
@@ -115,6 +116,8 @@ if (!gotLock) {
     }
     initCapture(host)
     registerExportIpc()
+    registerRecorderIpc(host)
+    setupDisplayMediaHandler()
 
     // All entry points route through startCapture — the license guard lives there.
     const handlers: Record<ShortcutField, () => void> = {
@@ -143,6 +146,8 @@ if (!gotLock) {
         captureArea: handlers.captureShortcut,
         captureFullscreen: handlers.fullscreenShortcut,
         captureWindow: handlers.windowShortcut,
+        captureScrolling: () => startCapture('scrolling', host),
+        recordArea: () => startCapture('record', host),
         quit: () => {
           isQuitting = true
           app.quit()

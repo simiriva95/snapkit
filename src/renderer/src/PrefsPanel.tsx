@@ -234,6 +234,18 @@ function PrefsPanel({ onBack }: { onBack: () => void }): React.JSX.Element {
             />
           </Row>
 
+          <Row label="Recording format">
+            <Segmented
+              ariaLabel="Recording format"
+              value={prefs.recordFormat}
+              options={[
+                { value: 'webm', label: 'WebM (5 min)' },
+                { value: 'gif', label: 'GIF (30 s)' }
+              ]}
+              onChange={(recordFormat) => patch({ recordFormat })}
+            />
+          </Row>
+
           <Row label="Styled copy backdrop">
             <Segmented
               ariaLabel="Styled copy backdrop"
