@@ -34,14 +34,18 @@ function Editor(): React.JSX.Element {
   const store = useEditorStore
 
   const exportRef = useRef<(() => string | null) | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Toast lives in the store so canvas tools (lasso/smart-cut) can notify too.
+  const toast = useEditorStore((s) => s.toast)
+  const toastNonce = useEditorStore((s) => s.toastNonce)
   const showToast = useCallback((message: string): void => {
-    setToast(message)
-    if (toastTimer.current) clearTimeout(toastTimer.current)
-    toastTimer.current = setTimeout(() => setToast(null), 2500)
+    useEditorStore.getState().showToast(message)
   }, [])
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => useEditorStore.getState().clearToast(), 2500)
+    return () => clearTimeout(t)
+  }, [toast, toastNonce])
 
   const doCopy = useCallback(async (): Promise<void> => {
     const url = exportRef.current?.()

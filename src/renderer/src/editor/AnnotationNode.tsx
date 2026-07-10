@@ -79,8 +79,9 @@ function AnnotationNode({
   }
 
   switch (anno.type) {
-    case 'arrow': {
-      // Arrows drag via their points, not x/y offset: translate points on drag end.
+    case 'arrow':
+    case 'line': {
+      // Arrows/lines drag via their points, not x/y offset: translate on drag end.
       const [x1, y1, x2, y2] = anno.points
       return (
         <Group
@@ -97,16 +98,26 @@ function AnnotationNode({
             onChange({ points: [x1 + dx, y1 + dy, x2 + dx, y2 + dy] }, true)
           }}
         >
-          <Arrow
-            points={[x1, y1, x2, y2]}
-            stroke={anno.color}
-            fill={anno.color}
-            strokeWidth={anno.strokeWidth}
-            pointerLength={anno.strokeWidth * 3.5}
-            pointerWidth={anno.strokeWidth * 3}
-            hitStrokeWidth={Math.max(16, anno.strokeWidth * 3)}
-            lineCap="round"
-          />
+          {anno.type === 'arrow' ? (
+            <Arrow
+              points={[x1, y1, x2, y2]}
+              stroke={anno.color}
+              fill={anno.color}
+              strokeWidth={anno.strokeWidth}
+              pointerLength={anno.strokeWidth * 3.5}
+              pointerWidth={anno.strokeWidth * 3}
+              hitStrokeWidth={Math.max(16, anno.strokeWidth * 3)}
+              lineCap="round"
+            />
+          ) : (
+            <Line
+              points={[x1, y1, x2, y2]}
+              stroke={anno.color}
+              strokeWidth={anno.strokeWidth}
+              hitStrokeWidth={Math.max(16, anno.strokeWidth * 3)}
+              lineCap="round"
+            />
+          )}
           {selected && (
             <>
               {(
@@ -160,7 +171,9 @@ function AnnotationNode({
       )
 
     case 'highlight':
-      // Paint-style freehand marker. Drags via node offset, then bakes the
+    case 'pen':
+      // Paint-style freehand strokes. Highlight is translucent multiply
+      // (marker), pen is opaque ink. Drags via node offset, then bakes the
       // translation back into the points (same trick as arrows).
       return (
         <Line
@@ -179,8 +192,8 @@ function AnnotationNode({
           points={anno.points}
           stroke={anno.color}
           strokeWidth={anno.strokeWidth}
-          opacity={0.4}
-          globalCompositeOperation="multiply"
+          opacity={anno.type === 'highlight' ? 0.4 : 1}
+          globalCompositeOperation={anno.type === 'highlight' ? 'multiply' : 'source-over'}
           lineCap="round"
           lineJoin="round"
           hitStrokeWidth={anno.strokeWidth + 10}

@@ -62,10 +62,16 @@ function PropertiesPanel(): React.JSX.Element {
     else s.setColor(c)
   }
 
+  const STROKE_TYPES = ['arrow', 'line', 'pen', 'rect'] as const
   const strokeTarget =
-    selected && (selected.type === 'arrow' || selected.type === 'rect') ? selected : null
+    selected && (STROKE_TYPES as readonly string[]).includes(selected.type)
+      ? (selected as Extract<
+          Annotation,
+          { strokeWidth: number; type: (typeof STROKE_TYPES)[number] }
+        >)
+      : null
   const showStroke =
-    strokeTarget !== null || (!selected && (s.tool === 'arrow' || s.tool === 'rect'))
+    strokeTarget !== null || (!selected && (STROKE_TYPES as readonly string[]).includes(s.tool))
   const strokeValue = strokeTarget?.strokeWidth ?? s.strokeWidth
 
   // Paint-style marker size (its own default, thicker than shape strokes).

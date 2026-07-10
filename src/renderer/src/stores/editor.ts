@@ -30,6 +30,12 @@ interface EditorState {
   redactionError: string | null
   proposals: RedactionRegion[]
 
+  /** Transient toast message; nonce re-arms the auto-dismiss timer. */
+  toast: string | null
+  toastNonce: number
+  showToast: (message: string) => void
+  clearToast: () => void
+
   setTool: (tool: Tool) => void
   setColor: (color: string) => void
   setStrokeWidth: (w: number) => void
@@ -84,6 +90,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   redactionProgress: 0,
   redactionError: null,
   proposals: [],
+  toast: null,
+  toastNonce: 0,
+  showToast: (toast) => set({ toast, toastNonce: get().toastNonce + 1 }),
+  clearToast: () => set({ toast: null }),
 
   setTool: (tool) => set({ tool, selectedId: null }),
   setColor: (color) => set({ color }),

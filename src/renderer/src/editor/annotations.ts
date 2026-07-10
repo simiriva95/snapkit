@@ -4,7 +4,19 @@
  * would persist. Coordinates are in image pixels.
  */
 
-export type Tool = 'select' | 'arrow' | 'rect' | 'text' | 'highlight' | 'step' | 'blur'
+export type Tool =
+  | 'select'
+  | 'arrow'
+  | 'line'
+  | 'pen'
+  | 'rect'
+  | 'text'
+  | 'highlight'
+  | 'step'
+  | 'blur'
+  // Action tools — they drive an interaction but never create an annotation.
+  | 'lasso'
+  | 'smartcut'
 
 interface Base {
   id: string
@@ -15,6 +27,20 @@ export interface ArrowAnno extends Base {
   type: 'arrow'
   /** [x1, y1, x2, y2] */
   points: [number, number, number, number]
+  strokeWidth: number
+}
+
+export interface LineAnno extends Base {
+  type: 'line'
+  /** [x1, y1, x2, y2] */
+  points: [number, number, number, number]
+  strokeWidth: number
+}
+
+export interface PenAnno extends Base {
+  type: 'pen'
+  /** Freehand stroke: [x1, y1, x2, y2, ...]. Opaque, unlike highlight. */
+  points: number[]
   strokeWidth: number
 }
 
@@ -58,7 +84,8 @@ export interface BlurAnno extends Base {
   pixelSize: number
 }
 
-export type Annotation = ArrowAnno | RectAnno | TextAnno | HighlightAnno | StepAnno | BlurAnno
+export type Annotation =
+  ArrowAnno | LineAnno | PenAnno | RectAnno | TextAnno | HighlightAnno | StepAnno | BlurAnno
 
 /** 1-based number of a step marker, derived from creation order (no renumbering needed). */
 export function stepNumber(annotations: Annotation[], id: string): number {

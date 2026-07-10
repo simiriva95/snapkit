@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { flushSync } from 'react-dom'
 import Konva from 'konva'
-import { Image as KImage, Layer, Stage, Transformer } from 'react-konva'
+import { Image as KImage, Layer, Line, Stage, Transformer } from 'react-konva'
 import type { CapturePayload } from '@shared/ipc'
 import { useEditorStore, useAnnotations } from '@renderer/stores/editor'
 import { normalizeRect, stepNumber, type Annotation } from './annotations'
 import AnnotationNode from './AnnotationNode'
 import TextEditOverlay from './TextEditOverlay'
 import RedactionLayer from './RedactionLayer'
+import { copyLasso } from './lasso'
 
 const MIN_DRAG = 3 // px in image coords — smaller drags are accidental clicks
 
@@ -37,6 +38,7 @@ function EditorCanvas({ capture, exportRef }: EditorCanvasProps): React.JSX.Elem
   const trRef = useRef<Konva.Transformer>(null)
   const [scale, setScale] = useState(1)
   const [draft, setDraft] = useState<Annotation | null>(null)
+  const [lassoDraft, setLassoDraft] = useState<number[] | null>(null)
   const [editingTextId, setEditingTextId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
 
@@ -122,6 +124,12 @@ function EditorCanvas({ capture, exportRef }: EditorCanvasProps): React.JSX.Elem
     }
     if (!onEmpty && tool !== 'blur') return // draw tools only start on empty space
 
+    // Action tools: free-form selection, no annotation created.
+    if (tool === 'lasso' || tool === 'smartcut') {
+      setLassoDraft([pos.x, pos.y])
+      return
+    }
+
     const id = crypto.randomUUID()
     switch (tool) {
       case 'arrow':
@@ -131,6 +139,24 @@ function EditorCanvas({ capture, exportRef }: EditorCanvasProps): React.JSX.Elem
           points: [pos.x, pos.y, pos.x, pos.y],
           color: s.color,
           strokeWidth: s.strokeWidth
+        })
+        break
+      case 'line':
+        setDraft({
+          id,
+          type: 'line',
+          points: [pos.x, pos.y, pos.x, pos.y],
+          color: s.color,
+          strokeWidth: s.strokeWidth
+        })
+        break
+      case 'pen':
+        setDraft({
+          id,
+          type: 'pen',
+          points: [pos.x, pos.y],
+          strokeWidth: s.strokeWidth,
+          color: s.color
         })
         break
       case 'rect':
@@ -191,12 +217,16 @@ function EditorCanvas({ capture, exportRef }: EditorCanvasProps): React.JSX.Elem
   }
 
   const onMouseMove = (): void => {
-    if (!draft) return
     const pos = pointer()
     if (!pos) return
-    if (draft.type === 'arrow') {
+    if (lassoDraft) {
+      setLassoDraft([...lassoDraft, pos.x, pos.y])
+      return
+    }
+    if (!draft) return
+    if (draft.type === 'arrow' || draft.type === 'line') {
       setDraft({ ...draft, points: [draft.points[0], draft.points[1], pos.x, pos.y] })
-    } else if (draft.type === 'highlight') {
+    } else if (draft.type === 'highlight' || draft.type === 'pen') {
       // Freehand: append the pointer trail.
       setDraft({ ...draft, points: [...draft.points, pos.x, pos.y] })
     } else if ('width' in draft) {
@@ -207,15 +237,31 @@ function EditorCanvas({ capture, exportRef }: EditorCanvasProps): React.JSX.Elem
   }
 
   const onMouseUp = (): void => {
+    if (lassoDraft) {
+      const points = lassoDraft
+      setLassoDraft(null)
+      if (points.length >= 6) {
+        const subject = tool === 'smartcut'
+        const s = store.getState()
+        s.showToast(subject ? 'Extracting subject…' : 'Copying selection…')
+        copyLasso(capture.dataUrl, points, subject)
+          .then(() => s.showToast(subject ? 'Subject copied' : 'Selection copied'))
+          .catch((err) => {
+            console.error('[lasso]', err)
+            s.showToast('Selection failed — see console')
+          })
+      }
+      return
+    }
     if (!draft) return
     setDraft(null)
     const s = store.getState()
-    if (draft.type === 'arrow') {
+    if (draft.type === 'arrow' || draft.type === 'line') {
       const [x1, y1, x2, y2] = draft.points
       if (Math.hypot(x2 - x1, y2 - y1) >= MIN_DRAG) s.add(draft)
       return
     }
-    if (draft.type === 'highlight') {
+    if (draft.type === 'highlight' || draft.type === 'pen') {
       if (draft.points.length >= 4) s.add(draft)
       return
     }
@@ -327,6 +373,17 @@ function EditorCanvas({ capture, exportRef }: EditorCanvasProps): React.JSX.Elem
                 newBox.width < 4 || newBox.height < 4 ? oldBox : newBox
               }
             />
+            {lassoDraft && lassoDraft.length >= 4 && (
+              <Line
+                points={lassoDraft}
+                closed
+                stroke="#3b82f6"
+                strokeWidth={1.5 / scale}
+                dash={[6 / scale, 4 / scale]}
+                fill="rgba(59,130,246,0.12)"
+                listening={false}
+              />
+            )}
             {!exporting && <RedactionLayer />}
           </Layer>
         </Stage>
