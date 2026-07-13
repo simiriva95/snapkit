@@ -56,15 +56,13 @@ describe('verifyLicenseKey', () => {
     expect(verifyLicenseKey(`SNAPK1.${b64}.${sig}`, pubPem).valid).toBe(false)
   })
 
-  it('committed dev keypair round-trips (keygen script compatibility)', () => {
+  it('committed dev PUBLIC key is well-formed (the private half never lives in the repo)', () => {
     const devPub = readFileSync(
       join(__dirname, '../../scripts/dev-license-keys/public.pem'),
       'utf8'
     )
-    const devPriv = readFileSync(
-      join(__dirname, '../../scripts/dev-license-keys/private.pem'),
-      'utf8'
-    )
-    expect(verifyLicenseKey(makeKey(devPriv), devPub).valid).toBe(true)
+    expect(devPub).toContain('BEGIN PUBLIC KEY')
+    // A key signed by an unrelated pair must NOT verify against it.
+    expect(verifyLicenseKey(makeKey(privPem), devPub).valid).toBe(false)
   })
 })

@@ -10,3 +10,4 @@ src/renderer/public/ocr/core/
 .claude
 # generated subject-extraction assets (setup-bgr.mjs)
 src/renderer/public/bgr/
+scripts/dev-license-keys/private.pem
