@@ -38,17 +38,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Production license public key (PEM). Falls back to the committed
-          # DEV key when unset — do NOT ship a real release without this.
+          # DEV key when unset — do NOT ship a paid release without this.
           SNAPKIT_LICENSE_PUBKEY: ${{ secrets.SNAPKIT_LICENSE_PUBKEY }}
-          # macOS signing + notarization (set the secrets to enable; unsigned otherwise)
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Windows signing (Azure Trusted Signing — see docs/selling.md)
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          # Skip mac signing gracefully when no cert secret is configured.
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.MAC_CSC_LINK != '' }}
+          # Unsigned builds for now. IMPORTANT: electron-builder treats a
+          # DEFINED-but-empty CSC_LINK as a file path and crashes — when the
+          # certs exist, ADD the env lines back (CSC_LINK, CSC_KEY_PASSWORD,
+          # APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID, AZURE_*)
+          # and drop the line below. See docs/selling.md.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
