@@ -1,10 +1,10 @@
 {
   "name": "snapkit",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Developer-first, cross-platform screenshot & annotation tool with local auto-redaction of secrets.",
   "main": "./out/main/index.js",
   "author": "Snapkit <hello@snapkit.dev>",
-  "homepage": "https://github.com/snapkit/snapkit",
+  "homepage": "https://github.com/simiriva95/snapkit",
   "license": "SEE LICENSE IN README.md",
   "scripts": {
     "predev": "node scripts/setup-ocr.mjs && node scripts/setup-bgr.mjs",
