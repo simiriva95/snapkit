@@ -166,6 +166,12 @@ Details worth stealing:
 - The only outbound connection the app can make is the auto-update check against GitHub
   Releases in packaged builds — and it fails silently offline.
 
+> **No API keys required — none exist in this repo.** Snapkit talks to zero external
+> services. Any key-looking strings you may spot in `src/shared/redaction.test.ts`
+> (`AIza…`, `AKIA…`, `xoxb-…`, `sk_live_…`, JWTs) are **fabricated test fixtures** for the
+> auto-redaction pattern matcher — they were never real credentials and there is nothing
+> for you to configure or replace. Secret-scanner reports on them are false positives.
+
 ## Development
 
 ```bash

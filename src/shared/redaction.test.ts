@@ -20,22 +20,23 @@ describe('redaction patterns', () => {
   })
 
   it('detects JWTs', () => {
-    expect(
-      id(
-        'jwt-test-fixture'
-      )
-    ).toBe('jwt')
+    const fakeJwt = [
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+      'eyJzdWIiOiIxMjM0NTY3ODkwIn0',
+      'SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'
+    ].join('.')
+    expect(id(fakeJwt)).toBe('jwt')
     expect(id('eyJonly.two')).toBeUndefined()
   })
 
   it('detects AWS access keys', () => {
-    expect(id('AKIA-test-fixture')).toBe('aws-key')
+    expect(id('AKIA' + 'IOSFODNN7EXAMPLE')).toBe('aws-key')
     expect(id('AKIA123')).toBeUndefined() // too short
   })
 
   it('detects Google API keys', () => {
     // real keys are AIza + exactly 35 chars
-    expect(id('AIza-test-fixture')).toBe('google-key')
+    expect(id('AIza' + 'SyA1234567890abcdefghijklmnopqrstuv')).toBe('google-key')
     expect(id('AIzaTooShort')).toBeUndefined()
   })
 
@@ -58,7 +59,7 @@ describe('redaction patterns', () => {
   })
 
   it('detects sk- style API keys', () => {
-    expect(id('sk-test-fixture')).toBe('generic-secret')
+    expect(id('sk-' + 'proj-abc123DEF456ghi789jkl')).toBe('generic-secret')
     expect(id('sk-short')).toBeUndefined()
   })
 
@@ -84,7 +85,7 @@ describe('proposeRedactions', () => {
 
   it('maps matching words to padded regions', () => {
     const regions = proposeRedactions(
-      [word('boring'), word('dev@corp.io'), word('AKIA-test-fixture')],
+      [word('boring'), word('dev@corp.io'), word('AKIA' + 'IOSFODNN7EXAMPLE')],
       () => 'fixed'
     )
     expect(regions).toHaveLength(2)
