@@ -12,6 +12,13 @@ files:
 # (CSC_LINK/CSC_KEY_PASSWORD; notarization via APPLE_ID/APPLE_APP_SPECIFIC_PASSWORD/APPLE_TEAM_ID).
 mac:
   category: public.app-category.developer-tools
+  # Ad-hoc signature ('-'): required so Apple Silicon accepts the app. Skipping
+  # signing entirely leaves Electron's stale signature → "app is damaged".
+  # hardenedRuntime is only needed for notarization (which we don't do yet) and
+  # would risk library-validation launch failures under an ad-hoc signature.
+  # Before selling: Developer ID + hardenedRuntime:true + notarize (docs/selling.md).
+  identity: '-'
+  hardenedRuntime: false
   target:
     - dmg
     - zip
