@@ -5,6 +5,9 @@ import {
   type CapturePayload,
   type ControlApi,
   type ControlMode,
+  type HistoryApi,
+  type OcrApi,
+  type OcrJob,
   type OverlayApi,
   type PickerApi,
   type RecordJob,
@@ -53,6 +56,21 @@ const recorderApi: RecorderApi = {
   sendResult: (data, ext) => ipcRenderer.send(IpcChannels.recordResult, data, ext)
 }
 
+const historyApi: HistoryApi = {
+  list: () => ipcRenderer.invoke(IpcChannels.historyList),
+  copy: (id) => ipcRenderer.send(IpcChannels.historyCopy, id),
+  pin: (id) => ipcRenderer.send(IpcChannels.historyPin, id),
+  remove: (id) => ipcRenderer.send(IpcChannels.historyDelete, id),
+  clear: () => ipcRenderer.send(IpcChannels.historyClear),
+  onChanged: (cb) => on<void>(IpcChannels.historyChanged, () => cb()),
+  cancel: () => ipcRenderer.send(IpcChannels.historyCancel)
+}
+
+const ocrApi: OcrApi = {
+  onRun: (cb) => on<OcrJob>(IpcChannels.ocrRun, cb),
+  sendResult: (id, text) => ipcRenderer.send(IpcChannels.ocrResult, id, text)
+}
+
 const overlayApi: OverlayApi = {
   onInit: (cb) => {
     const listener = (_e: IpcRendererEvent, payload: { dataUrl: string }): void => cb(payload)
@@ -80,6 +98,8 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('api', api)
     contextBridge.exposeInMainWorld('overlayApi', overlayApi)
     contextBridge.exposeInMainWorld('pickerApi', pickerApi)
+    contextBridge.exposeInMainWorld('historyApi', historyApi)
+    contextBridge.exposeInMainWorld('ocrApi', ocrApi)
     contextBridge.exposeInMainWorld('controlApi', controlApi)
     contextBridge.exposeInMainWorld('recorderApi', recorderApi)
   } catch (error) {
@@ -93,10 +113,14 @@ if (process.contextIsolated) {
     pickerApi: PickerApi
     controlApi: ControlApi
     recorderApi: RecorderApi
+    historyApi: HistoryApi
+    ocrApi: OcrApi
   }
   w.api = api
   w.overlayApi = overlayApi
   w.pickerApi = pickerApi
   w.controlApi = controlApi
   w.recorderApi = recorderApi
+  w.historyApi = historyApi
+  w.ocrApi = ocrApi
 }

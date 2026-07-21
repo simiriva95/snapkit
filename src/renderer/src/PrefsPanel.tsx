@@ -52,6 +52,37 @@ function Segmented<T extends string>({
   )
 }
 
+function Toggle({
+  checked,
+  onChange,
+  ariaLabel
+}: {
+  checked: boolean
+  onChange: (v: boolean) => void
+  ariaLabel: string
+}): React.JSX.Element {
+  return (
+    <button
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        'h-6 w-10 rounded-full p-0.5 outline-none transition-colors',
+        'focus-visible:ring-[3px] focus-visible:ring-ring/50',
+        checked ? 'bg-primary' : 'bg-input'
+      )}
+    >
+      <span
+        className={cn(
+          'block size-5 rounded-full bg-background shadow transition-transform',
+          checked && 'translate-x-4'
+        )}
+      />
+    </button>
+  )
+}
+
 function ShortcutRecorder({
   label,
   value,
@@ -209,6 +240,14 @@ function PrefsPanel({ onBack }: { onBack: () => void }): React.JSX.Element {
             />
           </Row>
 
+          <Row label="Clipboard history">
+            <ShortcutRecorder
+              label="Clipboard history shortcut"
+              value={prefs.historyShortcut}
+              onRecord={(acc) => patch({ historyShortcut: acc })}
+            />
+          </Row>
+
           <Row label="Theme">
             <Segmented
               ariaLabel="Theme"
@@ -315,24 +354,35 @@ function PrefsPanel({ onBack }: { onBack: () => void }): React.JSX.Element {
           </div>
 
           <Row label="Auto-redact after capture">
-            <button
-              role="switch"
-              aria-checked={prefs.autoRedactOnCapture}
-              aria-label="Auto-redact after capture"
-              onClick={() => patch({ autoRedactOnCapture: !prefs.autoRedactOnCapture })}
-              className={cn(
-                'h-6 w-10 rounded-full p-0.5 outline-none transition-colors',
-                'focus-visible:ring-[3px] focus-visible:ring-ring/50',
-                prefs.autoRedactOnCapture ? 'bg-primary' : 'bg-input'
-              )}
-            >
-              <span
-                className={cn(
-                  'block size-5 rounded-full bg-background shadow transition-transform',
-                  prefs.autoRedactOnCapture && 'translate-x-4'
-                )}
-              />
-            </button>
+            <Toggle
+              ariaLabel="Auto-redact after capture"
+              checked={prefs.autoRedactOnCapture}
+              onChange={(v) => patch({ autoRedactOnCapture: v })}
+            />
+          </Row>
+
+          <Row label="Auto-copy capture to clipboard">
+            <Toggle
+              ariaLabel="Auto-copy capture to clipboard"
+              checked={prefs.autoCopyOnCapture}
+              onChange={(v) => patch({ autoCopyOnCapture: v })}
+            />
+          </Row>
+
+          <Row label="Track clipboard history">
+            <Toggle
+              ariaLabel="Track clipboard history"
+              checked={prefs.clipboardHistory}
+              onChange={(v) => patch({ clipboardHistory: v })}
+            />
+          </Row>
+
+          <Row label="Auto-paste picked item">
+            <Toggle
+              ariaLabel="Auto-paste picked item"
+              checked={prefs.autoPaste}
+              onChange={(v) => patch({ autoPaste: v })}
+            />
           </Row>
         </div>
 

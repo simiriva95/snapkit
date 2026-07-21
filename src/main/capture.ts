@@ -1,8 +1,10 @@
 import {
   BrowserWindow,
+  clipboard,
   desktopCapturer,
   dialog,
   ipcMain,
+  nativeImage,
   screen,
   shell,
   systemPreferences,
@@ -10,6 +12,7 @@ import {
   type NativeImage,
   type Rectangle
 } from 'electron'
+import { getPrefs } from './prefs'
 import {
   IpcChannels,
   type CaptureMode,
@@ -139,6 +142,12 @@ async function prepare(host: EditorHost): Promise<{ restoreMain: boolean } | nul
 }
 
 function deliver(payload: CapturePayload, host: EditorHost): void {
+  // Auto-copy the raw capture so it's paste-ready immediately (and lands in
+  // the clipboard history via the poller). The editor's Copy button still
+  // copies the edited image.
+  if (getPrefs().autoCopyOnCapture) {
+    clipboard.writeImage(nativeImage.createFromDataURL(payload.dataUrl))
+  }
   const editor = host.ensure()
   sendWhenReady(editor, IpcChannels.captureCaptured, payload)
   editor.show()

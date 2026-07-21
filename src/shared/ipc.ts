@@ -46,13 +46,34 @@ export const IpcChannels = {
   /** main → recorder renderer: stop and hand back the file. */
   recordStop: 'record:stop',
   /** recorder renderer → main: encoded recording bytes. */
-  recordResult: 'record:result'
+  recordResult: 'record:result',
+  /** history panel → main: fetch the clipboard-history entries. */
+  historyList: 'history:list',
+  /** history panel → main: re-copy an entry to the clipboard (closes panel). */
+  historyCopy: 'history:copy',
+  /** history panel → main: wipe the whole history. */
+  historyClear: 'history:clear',
+  /** history panel → main: pin/unpin an entry (survives eviction, sorts first). */
+  historyPin: 'history:pin',
+  /** history panel → main: delete a single entry. */
+  historyDelete: 'history:delete',
+  /** main → history panel: entries changed, re-fetch. */
+  historyChanged: 'history:changed',
+  /** history panel → main: dismiss the panel (Esc). */
+  historyCancel: 'history:cancel',
+  /** main → hidden OCR window: recognize text in this image. */
+  ocrRun: 'ocr:run',
+  /** OCR window → main: recognized text for a request. */
+  ocrResult: 'ocr:result'
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
 
 /** Default global shortcut for area capture (configurable at M5). */
 export const DEFAULT_CAPTURE_SHORTCUT = 'CommandOrControl+Shift+2'
+
+/** Default global shortcut for the clipboard-history panel (Win+V-style). */
+export const DEFAULT_HISTORY_SHORTCUT = 'CommandOrControl+Shift+V'
 
 /** Capture entry points. */
 export type CaptureMode = 'area' | 'fullscreen' | 'window' | 'scrolling' | 'record'
@@ -104,6 +125,29 @@ export interface CapturePayload {
   height: number
 }
 
+/** One clipboard-history item shown in the panel. */
+export interface HistoryEntry {
+  id: string
+  type: 'text' | 'image'
+  /** text entries: the copied text. */
+  text?: string
+  /** image entries: thumbnail data URL for the grid. */
+  thumbDataUrl?: string
+  /** ms epoch of when it was captured. */
+  ts: number
+  /** pinned entries sort first and are never auto-evicted. */
+  pinned: boolean
+  /** image entries: text extracted by OCR, so search can find screenshots. */
+  ocrText?: string
+}
+
+/** A pending OCR job handed to the hidden OCR window. */
+export interface OcrJob {
+  id: string
+  dataUrl: string
+  langs: string[]
+}
+
 /** Outcome of a save-to-file export. */
 export type ExportSaveResult =
   { status: 'saved'; path: string } | { status: 'canceled' } | { status: 'error'; message: string }
@@ -134,6 +178,28 @@ export interface SnapkitApi {
   activateLicense: (key: string) => Promise<import('./license').LicenseActivateResult>
   /** Scrolling capture finished: frames ready for stitching. Returns unsubscribe. */
   onScrollFrames: (cb: (payload: ScrollFramesPayload) => void) => () => void
+}
+
+/** The API bridged into the clipboard-history panel window. */
+export interface HistoryApi {
+  list: () => Promise<HistoryEntry[]>
+  /** Re-copy an entry; main closes the panel afterwards. */
+  copy: (id: string) => void
+  /** Toggle pin on an entry. */
+  pin: (id: string) => void
+  /** Delete a single entry. */
+  remove: (id: string) => void
+  clear: () => void
+  /** Notified when the history changes while the panel is open. */
+  onChanged: (cb: () => void) => () => void
+  /** Dismiss the panel. */
+  cancel: () => void
+}
+
+/** The API bridged into the hidden OCR-indexing window. */
+export interface OcrApi {
+  onRun: (cb: (job: OcrJob) => void) => () => void
+  sendResult: (id: string, text: string) => void
 }
 
 /** The API bridged into the floating control bar window. */

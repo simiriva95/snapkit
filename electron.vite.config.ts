@@ -40,6 +40,8 @@ export default defineConfig({
           index: resolve(__dirname, 'src/renderer/index.html'),
           overlay: resolve(__dirname, 'src/renderer/overlay.html'),
           picker: resolve(__dirname, 'src/renderer/picker.html'),
+          history: resolve(__dirname, 'src/renderer/history.html'),
+          ocr: resolve(__dirname, 'src/renderer/ocr.html'),
           controlbar: resolve(__dirname, 'src/renderer/controlbar.html'),
           recorder: resolve(__dirname, 'src/renderer/recorder.html')
         }

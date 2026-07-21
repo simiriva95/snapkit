@@ -37,6 +37,13 @@ export interface OcrPage {
   lines: OcrLine[]
 }
 
+/** Plain-text OCR — used to make clipboard-history screenshots searchable. */
+export async function recognizeText(dataUrl: string, langs: string[]): Promise<string> {
+  const worker = await getWorker(langs)
+  const { data } = await worker.recognize(dataUrl)
+  return (data.text ?? '').trim()
+}
+
 /** Run OCR on an image; returns flattened words + lines with pixel bboxes. */
 export async function recognizePage(
   dataUrl: string,
