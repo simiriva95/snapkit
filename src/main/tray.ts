@@ -10,10 +10,14 @@ export interface TrayActions {
   captureWindow: () => void
   captureScrolling: () => void
   recordArea: () => void
+  clipboardHistory: () => void
   quit: () => void
 }
 
-type TrayShortcuts = Pick<Prefs, 'captureShortcut' | 'fullscreenShortcut' | 'windowShortcut'>
+type TrayShortcuts = Pick<
+  Prefs,
+  'captureShortcut' | 'fullscreenShortcut' | 'windowShortcut' | 'historyShortcut'
+>
 
 // Keep a module-level ref so the tray isn't garbage-collected.
 let tray: Tray | null = null
@@ -37,6 +41,12 @@ function buildMenu(shortcuts: TrayShortcuts): Menu {
     },
     { label: 'Scrolling Capture', click: actions.captureScrolling },
     { label: 'Record Area…', click: actions.recordArea },
+    { type: 'separator' },
+    {
+      label: 'Clipboard History',
+      accelerator: shortcuts.historyShortcut,
+      click: actions.clipboardHistory
+    },
     { type: 'separator' },
     { label: 'Open Snapkit', click: actions.show },
     { type: 'separator' },

@@ -1,4 +1,4 @@
-import { DEFAULT_CAPTURE_SHORTCUT } from './ipc'
+import { DEFAULT_CAPTURE_SHORTCUT, DEFAULT_HISTORY_SHORTCUT } from './ipc'
 
 /** User preferences, persisted by electron-store in the main process. */
 export interface Prefs {
@@ -21,6 +21,14 @@ export interface Prefs {
   ocrLanguages: string[]
   /** Screen recording output. GIF is capped at 30s, WebM at 5min. */
   recordFormat: 'webm' | 'gif'
+  /** Copy each new capture to the OS clipboard automatically. */
+  autoCopyOnCapture: boolean
+  /** Track everything copied (text + images) in a browsable history. */
+  clipboardHistory: boolean
+  /** Electron accelerator that opens the clipboard-history panel. */
+  historyShortcut: string
+  /** After picking a history entry, paste it into the focused app (needs OS accessibility permission). */
+  autoPaste: boolean
   onboardingDone: boolean
 }
 
@@ -35,6 +43,10 @@ export const DEFAULT_PREFS: Prefs = {
   autoRedactOnCapture: false,
   ocrLanguages: ['eng'],
   recordFormat: 'webm',
+  autoCopyOnCapture: true,
+  clipboardHistory: true,
+  historyShortcut: DEFAULT_HISTORY_SHORTCUT,
+  autoPaste: false,
   onboardingDone: false
 }
 

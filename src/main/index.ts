@@ -10,6 +10,8 @@ import { APP_URL, registerAppScheme, serveRenderer } from './protocol'
 import { registerRecorderIpc, setupDisplayMediaHandler } from './recorder'
 import { registerShortcut, unregisterShortcuts } from './shortcuts'
 import { initAutoUpdate } from './updater'
+import { applyHistoryPrefs, initHistory, openHistoryPanel, stopHistory } from './history'
+import { initOcrIndex, stopOcrIndex } from './ocrIndex'
 
 // electron-vite injects this in dev; absent in a packaged build.
 const RENDERER_DEV_URL = process.env['ELECTRON_RENDERER_URL']
@@ -123,12 +125,15 @@ if (!gotLock) {
     registerExportIpc()
     registerRecorderIpc(host)
     setupDisplayMediaHandler()
+    initOcrIndex()
+    initHistory()
 
     // All entry points route through startCapture — the license guard lives there.
     const handlers: Record<ShortcutField, () => void> = {
       captureShortcut: () => startCapture('area', host),
       fullscreenShortcut: () => startCapture('fullscreen', host),
-      windowShortcut: () => startCapture('window', host)
+      windowShortcut: () => startCapture('window', host),
+      historyShortcut: () => openHistoryPanel()
     }
     const prefs = getPrefs()
     for (const field of Object.keys(handlers) as ShortcutField[]) {
@@ -138,7 +143,10 @@ if (!gotLock) {
     }
     registerPrefsIpc(
       (field, accelerator) => registerShortcut(field, accelerator),
-      (updated) => updateTrayShortcuts(updated)
+      (updated) => {
+        updateTrayShortcuts(updated)
+        applyHistoryPrefs(updated.clipboardHistory)
+      }
     )
 
     createTray(
@@ -153,6 +161,7 @@ if (!gotLock) {
         captureWindow: handlers.windowShortcut,
         captureScrolling: () => startCapture('scrolling', host),
         recordArea: () => startCapture('record', host),
+        clipboardHistory: () => openHistoryPanel(),
         quit: () => {
           isQuitting = true
           app.quit()
@@ -171,5 +180,9 @@ if (!gotLock) {
   // Do NOT quit on window-all-closed: this is a tray-resident app.
   app.on('window-all-closed', () => {})
 
-  app.on('will-quit', () => unregisterShortcuts())
+  app.on('will-quit', () => {
+    unregisterShortcuts()
+    stopHistory()
+    stopOcrIndex()
+  })
 }

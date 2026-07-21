@@ -5,7 +5,12 @@ import { DEFAULT_PREFS, type Prefs, type PrefsSetResult } from '@shared/prefs'
 
 const store = new Store<Prefs>({ defaults: DEFAULT_PREFS })
 
-export const SHORTCUT_FIELDS = ['captureShortcut', 'fullscreenShortcut', 'windowShortcut'] as const
+export const SHORTCUT_FIELDS = [
+  'captureShortcut',
+  'fullscreenShortcut',
+  'windowShortcut',
+  'historyShortcut'
+] as const
 export type ShortcutField = (typeof SHORTCUT_FIELDS)[number]
 
 export function getPrefs(): Prefs {

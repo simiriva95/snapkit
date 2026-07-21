@@ -1,5 +1,13 @@
 /// <reference types="vite/client" />
-import type { ControlApi, OverlayApi, PickerApi, RecorderApi, SnapkitApi } from '@shared/ipc'
+import type {
+  ControlApi,
+  HistoryApi,
+  OcrApi,
+  OverlayApi,
+  PickerApi,
+  RecorderApi,
+  SnapkitApi
+} from '@shared/ipc'
 
 declare global {
   interface Window {
@@ -8,5 +16,7 @@ declare global {
     pickerApi: PickerApi
     controlApi: ControlApi
     recorderApi: RecorderApi
+    historyApi: HistoryApi
+    ocrApi: OcrApi
   }
 }
