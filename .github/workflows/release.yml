@@ -47,10 +47,11 @@ jobs:
           # and drop the line below. See docs/selling.md.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
-      # The app is ad-hoc signed, not notarized: quarantined downloads are
-      # blocked by Gatekeeper ("Snapkit is damaged"). Until we notarize
-      # (docs/selling.md), every release body carries the workaround.
-      - name: Append macOS install note to release
+      # The app is ad-hoc signed, not notarized: browser downloads are
+      # quarantined and Gatekeeper rejects them ("Snapkit is damaged"). Until
+      # we notarize (docs/selling.md), steer macOS users to the install
+      # script / brew instead of the .dmg. See README "Install".
+      - name: Append macOS install guide to release
         if: runner.os == 'macOS'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -58,16 +59,45 @@ jobs:
           cat > /tmp/mac-note.md <<'EOF'
 
           ---
-          ### macOS install note
-          The app is not notarized yet, so macOS reports it as **“damaged”**. After copying Snapkit to Applications, run:
+          ### 🍎 macOS — don't download the .dmg, use one of these
+          The app is not notarized yet, so anything downloaded with a browser is blocked by Gatekeeper ("Snapkit is damaged"). Install from the terminal instead:
+
           ```
-          xattr -cr /Applications/Snapkit.app
+          curl -fsSL https://raw.githubusercontent.com/simiriva95/snapkit/main/scripts/install.sh | bash
           ```
-          then open it normally. (Right-click → Open does not bypass this on macOS 15+.)
+
+          or with Homebrew:
+
+          ```
+          brew tap simiriva95/snapkit https://github.com/simiriva95/snapkit
+          brew install --cask --no-quarantine snapkit
+          ```
+
+          Already downloaded the .dmg? Copy the app to Applications, then `xattr -cr /Applications/Snapkit.app`.
           EOF
           TAG="${GITHUB_REF_NAME}"
           gh release view "$TAG" --json body -q .body > /tmp/body.md || exit 0
-          if ! grep -q 'xattr -cr' /tmp/body.md; then
+          if ! grep -q 'install.sh' /tmp/body.md; then
             cat /tmp/body.md /tmp/mac-note.md > /tmp/new-body.md
             gh release edit "$TAG" --notes-file /tmp/new-body.md
           fi
+
+      # Keep the Homebrew cask (Casks/snapkit.rb, served from this repo as a
+      # tap) pointing at the release that was just published.
+      - name: Bump Homebrew cask
+        if: runner.os == 'macOS'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          SHA=$(shasum -a 256 "dist/Snapkit-${VERSION}-arm64-mac.zip" | cut -d' ' -f1)
+          sed -i '' \
+            -e "s/^  version \".*\"/  version \"${VERSION}\"/" \
+            -e "s/^  sha256 \".*\"/  sha256 \"${SHA}\"/" \
+            Casks/snapkit.rb
+          FILE_SHA=$(gh api "/repos/${GITHUB_REPOSITORY}/contents/Casks/snapkit.rb?ref=main" -q .sha)
+          gh api -X PUT "/repos/${GITHUB_REPOSITORY}/contents/Casks/snapkit.rb" \
+            -f message="chore(brew): bump cask to ${VERSION}" \
+            -f content="$(base64 -i Casks/snapkit.rb)" \
+            -f sha="$FILE_SHA" \
+            -f branch=main
