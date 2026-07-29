@@ -1,6 +1,6 @@
 {
   "name": "snapkit",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Developer-first, cross-platform screenshot & annotation tool with local auto-redaction of secrets.",
   "main": "./out/main/index.js",
   "author": "Snapkit <hello@snapkit.dev>",
