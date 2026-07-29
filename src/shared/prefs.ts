@@ -8,6 +8,10 @@ export interface Prefs {
   fullscreenShortcut: string
   /** Electron accelerator for window capture (opens the picker). */
   windowShortcut: string
+  /** Electron accelerator for scrolling capture. */
+  scrollingShortcut: string
+  /** Electron accelerator for area screen recording. */
+  recordShortcut: string
   theme: 'dark' | 'light' | 'system'
   /** Default folder for the save dialog. null = OS desktop. */
   exportDir: string | null
@@ -36,6 +40,9 @@ export const DEFAULT_PREFS: Prefs = {
   captureShortcut: DEFAULT_CAPTURE_SHORTCUT,
   fullscreenShortcut: 'CommandOrControl+Shift+1',
   windowShortcut: 'CommandOrControl+Shift+3',
+  // 4 and 5 are macOS system screenshot shortcuts — skip them.
+  scrollingShortcut: 'CommandOrControl+Shift+6',
+  recordShortcut: 'CommandOrControl+Shift+7',
   theme: 'dark',
   exportDir: null,
   exportFormat: 'png',

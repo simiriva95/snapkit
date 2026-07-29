@@ -46,3 +46,28 @@ jobs:
           # APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID, AZURE_*)
           # and drop the line below. See docs/selling.md.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      # The app is ad-hoc signed, not notarized: quarantined downloads are
+      # blocked by Gatekeeper ("Snapkit is damaged"). Until we notarize
+      # (docs/selling.md), every release body carries the workaround.
+      - name: Append macOS install note to release
+        if: runner.os == 'macOS'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat > /tmp/mac-note.md <<'EOF'
+
+          ---
+          ### macOS install note
+          The app is not notarized yet, so macOS reports it as **“damaged”**. After copying Snapkit to Applications, run:
+          ```
+          xattr -cr /Applications/Snapkit.app
+          ```
+          then open it normally. (Right-click → Open does not bypass this on macOS 15+.)
+          EOF
+          TAG="${GITHUB_REF_NAME}"
+          gh release view "$TAG" --json body -q .body > /tmp/body.md || exit 0
+          if ! grep -q 'xattr -cr' /tmp/body.md; then
+            cat /tmp/body.md /tmp/mac-note.md > /tmp/new-body.md
+            gh release edit "$TAG" --notes-file /tmp/new-body.md
+          fi

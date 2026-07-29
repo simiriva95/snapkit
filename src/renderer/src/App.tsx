@@ -195,7 +195,7 @@ function App(): React.JSX.Element {
                 {
                   icon: MoveVertical,
                   label: 'Scrolling',
-                  kbd: undefined,
+                  kbd: formatAccelerator(prefs?.scrollingShortcut ?? 'CommandOrControl+Shift+6'),
                   mode: 'scrolling' as const,
                   title:
                     'Select an area, scroll the content, frames get stitched into one tall image'
@@ -203,7 +203,7 @@ function App(): React.JSX.Element {
                 {
                   icon: Video,
                   label: 'Record',
-                  kbd: undefined,
+                  kbd: formatAccelerator(prefs?.recordShortcut ?? 'CommandOrControl+Shift+7'),
                   mode: 'record' as const,
                   title: 'Record an area of the screen (WebM or GIF — see Preferences)'
                 }

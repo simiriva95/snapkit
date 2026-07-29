@@ -16,7 +16,12 @@ export interface TrayActions {
 
 type TrayShortcuts = Pick<
   Prefs,
-  'captureShortcut' | 'fullscreenShortcut' | 'windowShortcut' | 'historyShortcut'
+  | 'captureShortcut'
+  | 'fullscreenShortcut'
+  | 'windowShortcut'
+  | 'scrollingShortcut'
+  | 'recordShortcut'
+  | 'historyShortcut'
 >
 
 // Keep a module-level ref so the tray isn't garbage-collected.
@@ -39,8 +44,12 @@ function buildMenu(shortcuts: TrayShortcuts): Menu {
       accelerator: shortcuts.windowShortcut,
       click: actions.captureWindow
     },
-    { label: 'Scrolling Capture', click: actions.captureScrolling },
-    { label: 'Record Area…', click: actions.recordArea },
+    {
+      label: 'Scrolling Capture',
+      accelerator: shortcuts.scrollingShortcut,
+      click: actions.captureScrolling
+    },
+    { label: 'Record Area…', accelerator: shortcuts.recordShortcut, click: actions.recordArea },
     { type: 'separator' },
     {
       label: 'Clipboard History',

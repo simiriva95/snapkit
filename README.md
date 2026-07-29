@@ -79,11 +79,11 @@ Snapkit runs OCR **locally**, finds the sensitive bits, and blurs them before yo
 
 Grab the latest installer from [**Releases**](../../releases):
 
-| OS                    | File                              | Note                                                                                        |
-| --------------------- | --------------------------------- | ------------------------------------------------------------------------------------------- |
-| macOS (Apple Silicon) | `Snapkit-x.y.z-arm64.dmg`         | Unsigned for now: right-click the app → **Open** (or `xattr -cr /Applications/Snapkit.app`) |
-| Windows (x64)         | `Snapkit Setup x.y.z.exe`         | SmartScreen will warn (unsigned): **More info → Run anyway**                                |
-| Linux                 | `Snapkit-x.y.z.AppImage` / `.deb` | `chmod +x` the AppImage and run                                                             |
+| OS                    | File                              | Note                                                                                                                                                                                                    |
+| --------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS (Apple Silicon) | `Snapkit-x.y.z-arm64.dmg`         | Not notarized yet — macOS shows **“Snapkit is damaged”**. After copying to Applications run `xattr -cr /Applications/Snapkit.app`, then open normally (right-click → Open no longer works on macOS 15+) |
+| Windows (x64)         | `Snapkit Setup x.y.z.exe`         | SmartScreen will warn (unsigned): **More info → Run anyway**                                                                                                                                            |
+| Linux                 | `Snapkit-x.y.z.AppImage` / `.deb` | `chmod +x` the AppImage and run                                                                                                                                                                         |
 
 > macOS asks for **Screen Recording** permission on first capture
 > (System Settings → Privacy & Security), then requires an app relaunch — that's an OS rule.

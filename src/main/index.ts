@@ -133,6 +133,8 @@ if (!gotLock) {
       captureShortcut: () => startCapture('area', host),
       fullscreenShortcut: () => startCapture('fullscreen', host),
       windowShortcut: () => startCapture('window', host),
+      scrollingShortcut: () => startCapture('scrolling', host),
+      recordShortcut: () => startCapture('record', host),
       historyShortcut: () => openHistoryPanel()
     }
     const prefs = getPrefs()
@@ -159,8 +161,8 @@ if (!gotLock) {
         captureArea: handlers.captureShortcut,
         captureFullscreen: handlers.fullscreenShortcut,
         captureWindow: handlers.windowShortcut,
-        captureScrolling: () => startCapture('scrolling', host),
-        recordArea: () => startCapture('record', host),
+        captureScrolling: handlers.scrollingShortcut,
+        recordArea: handlers.recordShortcut,
         clipboardHistory: () => openHistoryPanel(),
         quit: () => {
           isQuitting = true
