@@ -20,6 +20,19 @@ export interface NodeProps {
 
 const FONT_FAMILY = 'Helvetica Neue, Helvetica, Arial, sans-serif'
 
+// Hover feedback with the select tool: annotations are movable, say so.
+// Only fires when the node is listening (i.e. select tool active).
+const hoverCursor = {
+  onMouseEnter: (e: Konva.KonvaEventObject<MouseEvent>) => {
+    const stage = e.target.getStage()
+    if (stage) stage.container().style.cursor = 'move'
+  },
+  onMouseLeave: (e: Konva.KonvaEventObject<MouseEvent>) => {
+    const stage = e.target.getStage()
+    if (stage) stage.container().style.cursor = 'default'
+  }
+}
+
 function BlurNode({
   anno,
   image,
@@ -75,7 +88,8 @@ function AnnotationNode({
     onTap: onSelect,
     onDragStart: onBeginChange,
     onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) =>
-      onChange({ x: e.target.x(), y: e.target.y() }, true)
+      onChange({ x: e.target.x(), y: e.target.y() }, true),
+    ...hoverCursor
   }
 
   switch (anno.type) {
@@ -97,6 +111,7 @@ function AnnotationNode({
             e.target.position({ x: 0, y: 0 })
             onChange({ points: [x1 + dx, y1 + dy, x2 + dx, y2 + dy] }, true)
           }}
+          {...hoverCursor}
         >
           {anno.type === 'arrow' ? (
             <Arrow
@@ -198,6 +213,7 @@ function AnnotationNode({
           lineJoin="round"
           hitStrokeWidth={anno.strokeWidth + 10}
           shadowForStrokeEnabled={false}
+          {...hoverCursor}
         />
       )
 

@@ -85,7 +85,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   strokeWidth: 4,
   highlightWidth: 18,
   fontSize: 24,
-  pixelSize: 12,
+  pixelSize: 8,
   redactionStatus: 'idle',
   redactionProgress: 0,
   redactionError: null,
