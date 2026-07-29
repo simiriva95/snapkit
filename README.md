@@ -75,15 +75,37 @@ Snapkit runs OCR **locally**, finds the sensitive bits, and blurs them before yo
 
 ## 📦 Install
 
-### Downloads
+### macOS (Apple Silicon)
+
+**Don't download the `.dmg` from Releases.** Snapkit isn't notarized by Apple yet, and macOS quarantines
+everything a browser downloads: Gatekeeper then rejects the app with **“Snapkit is damaged”** (and since
+macOS 15 right-click → Open no longer bypasses it). Terminal downloads are not quarantined, so install
+one of these two ways instead:
+
+**1. Install script** (recommended) — downloads the latest release and puts it in `/Applications`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/simiriva95/snapkit/main/scripts/install.sh | bash
+```
+
+**2. Homebrew** — this repo doubles as a tap. The `--no-quarantine` flag is required because Homebrew
+quarantines cask downloads by default, which would hit the same Gatekeeper block:
+
+```bash
+brew tap simiriva95/snapkit https://github.com/simiriva95/snapkit
+brew install --cask --no-quarantine snapkit
+```
+
+Already stuck with a “damaged” copy from the `.dmg`? Fix it with `xattr -cr /Applications/Snapkit.app`.
+
+### Windows & Linux
 
 Grab the latest installer from [**Releases**](../../releases):
 
-| OS                    | File                              | Note                                                                                        |
-| --------------------- | --------------------------------- | ------------------------------------------------------------------------------------------- |
-| macOS (Apple Silicon) | `Snapkit-x.y.z-arm64.dmg`         | Unsigned for now: right-click the app → **Open** (or `xattr -cr /Applications/Snapkit.app`) |
-| Windows (x64)         | `Snapkit Setup x.y.z.exe`         | SmartScreen will warn (unsigned): **More info → Run anyway**                                |
-| Linux                 | `Snapkit-x.y.z.AppImage` / `.deb` | `chmod +x` the AppImage and run                                                             |
+| OS            | File                              | Note                                                         |
+| ------------- | --------------------------------- | ------------------------------------------------------------ |
+| Windows (x64) | `Snapkit Setup x.y.z.exe`         | SmartScreen will warn (unsigned): **More info → Run anyway** |
+| Linux         | `Snapkit-x.y.z.AppImage` / `.deb` | `chmod +x` the AppImage and run                              |
 
 > macOS asks for **Screen Recording** permission on first capture
 > (System Settings → Privacy & Security), then requires an app relaunch — that's an OS rule.

@@ -240,6 +240,22 @@ function PrefsPanel({ onBack }: { onBack: () => void }): React.JSX.Element {
             />
           </Row>
 
+          <Row label="Scrolling capture">
+            <ShortcutRecorder
+              label="Scrolling capture shortcut"
+              value={prefs.scrollingShortcut}
+              onRecord={(acc) => patch({ scrollingShortcut: acc })}
+            />
+          </Row>
+
+          <Row label="Record area">
+            <ShortcutRecorder
+              label="Area recording shortcut"
+              value={prefs.recordShortcut}
+              onRecord={(acc) => patch({ recordShortcut: acc })}
+            />
+          </Row>
+
           <Row label="Clipboard history">
             <ShortcutRecorder
               label="Clipboard history shortcut"

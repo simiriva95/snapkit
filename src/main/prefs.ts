@@ -9,6 +9,8 @@ export const SHORTCUT_FIELDS = [
   'captureShortcut',
   'fullscreenShortcut',
   'windowShortcut',
+  'scrollingShortcut',
+  'recordShortcut',
   'historyShortcut'
 ] as const
 export type ShortcutField = (typeof SHORTCUT_FIELDS)[number]
