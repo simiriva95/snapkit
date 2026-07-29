@@ -242,6 +242,7 @@ function stopPolling(): void {
 
 export function openHistoryPanel(): void {
   if (panel && !panel.isDestroyed()) {
+    app.focus({ steal: true })
     panel.show()
     panel.focus()
     return
@@ -267,12 +268,19 @@ export function openHistoryPanel(): void {
       nodeIntegration: false
     }
   })
+  // Behave like the OS clipboard popup: float above everything (fullscreen
+  // apps included) and show on whatever Space the user is on.
+  panel.setAlwaysOnTop(true, 'pop-up-menu')
+  panel.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   panel.on('closed', () => {
     panel = null
   })
   // Dismiss when it loses focus, like the OS clipboard popup.
   panel.on('blur', () => panel?.close())
   panel.webContents.once('did-finish-load', () => {
+    // macOS refuses focus to background apps unless stolen explicitly —
+    // without this the panel appears unfocused (no typing) or seems missing.
+    app.focus({ steal: true })
     panel?.show()
     panel?.focus()
   })
