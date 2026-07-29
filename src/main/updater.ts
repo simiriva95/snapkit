@@ -60,6 +60,9 @@ async function checkMacUpdate(): Promise<void> {
     const asset = rel.assets.find((a) => a.name.endsWith('arm64-mac.zip'))
     if (!asset) return
 
+    // Background apps don't get their dialogs brought forward on macOS —
+    // without stealing focus the prompt exists but nobody ever sees it.
+    app.focus({ steal: true })
     const { response } = await dialog.showMessageBox({
       type: 'info',
       message: `Snapkit ${latest} is available`,
