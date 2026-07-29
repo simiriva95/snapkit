@@ -6,8 +6,8 @@
 # cask downloads by default and Gatekeeper rejects unnotarized quarantined apps.
 # version/sha256 are bumped automatically by .github/workflows/release.yml.
 cask "snapkit" do
-  version "0.2.0"
-  sha256 "aaf3ea327d551cbf5d384c3c40ca780522626f0df59a5ce24b90f4550123a324"
+  version "0.3.0"
+  sha256 "a4ac961d656a645de144c8400b28c64ce32e328f96195ee62ef91f87fd9be0ae"
 
   url "https://github.com/simiriva95/snapkit/releases/download/v#{version}/Snapkit-#{version}-arm64-mac.zip"
   name "Snapkit"
