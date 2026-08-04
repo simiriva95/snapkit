@@ -14,6 +14,10 @@ jobs:
   release:
     strategy:
       fail-fast: false
+      # Serial on purpose: in parallel every OS finds "release doesn't exist"
+      # and creates its own draft, so v0.4.2 ended up as two drafts with the
+      # assets split between them. The first job creates it, the rest attach.
+      max-parallel: 1
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
