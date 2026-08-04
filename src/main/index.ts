@@ -9,6 +9,7 @@ import { registerLicenseIpc } from './license'
 import { APP_URL, registerAppScheme, serveRenderer } from './protocol'
 import { registerRecorderIpc, setupDisplayMediaHandler } from './recorder'
 import { registerShortcut, unregisterShortcuts } from './shortcuts'
+import { applyLaunchAtLogin, launchedAtLogin } from './loginItem'
 import { initAutoUpdate } from './updater'
 import { applyHistoryPrefs, initHistory, openHistoryPanel, stopHistory } from './history'
 import { initOcrIndex, stopOcrIndex } from './ocrIndex'
@@ -19,6 +20,8 @@ const RENDERER_DEV_URL = process.env['ELECTRON_RENDERER_URL']
 let mainWindow: BrowserWindow | null = null
 // Tray apps hide on close instead of quitting; this flag lets "Quit" really quit.
 let isQuitting = false
+// Launched at login → first window stays hidden, app lives in the tray only.
+let startHidden = false
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -41,7 +44,14 @@ function createWindow(): BrowserWindow {
     }
   })
 
-  win.on('ready-to-show', () => win.show())
+  win.on('ready-to-show', () => {
+    // Only the very first window of a login launch stays hidden.
+    if (startHidden) {
+      startHidden = false
+      return
+    }
+    win.show()
+  })
 
   // Keep the app alive in the tray when the window is closed.
   win.on('close', (event) => {
@@ -112,6 +122,7 @@ if (!gotLock) {
     registerIpc()
     registerLicenseIpc()
     initAutoUpdate()
+    startHidden = launchedAtLogin()
     mainWindow = createWindow()
 
     const host: EditorHost = {
@@ -138,6 +149,8 @@ if (!gotLock) {
       historyShortcut: () => openHistoryPanel()
     }
     const prefs = getPrefs()
+    // Re-assert the login item: a reinstall or bundle move can drop it.
+    applyLaunchAtLogin(prefs.launchAtLogin)
     for (const field of Object.keys(handlers) as ShortcutField[]) {
       if (!registerShortcut(field, prefs[field], handlers[field])) {
         console.warn(`[shortcuts] could not register ${prefs[field]} (already in use?)`)
@@ -148,6 +161,7 @@ if (!gotLock) {
       (updated) => {
         updateTrayShortcuts(updated)
         applyHistoryPrefs(updated.clipboardHistory)
+        applyLaunchAtLogin(updated.launchAtLogin, true)
       }
     )
 

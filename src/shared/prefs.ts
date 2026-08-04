@@ -33,6 +33,8 @@ export interface Prefs {
   historyShortcut: string
   /** After picking a history entry, paste it into the focused app (needs OS accessibility permission). */
   autoPaste: boolean
+  /** Start Snapkit in the tray when the user logs in. Packaged builds only. */
+  launchAtLogin: boolean
   onboardingDone: boolean
 }
 
@@ -54,6 +56,7 @@ export const DEFAULT_PREFS: Prefs = {
   clipboardHistory: true,
   historyShortcut: DEFAULT_HISTORY_SHORTCUT,
   autoPaste: false,
+  launchAtLogin: false,
   onboardingDone: false
 }
 

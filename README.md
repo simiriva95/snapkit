@@ -71,7 +71,8 @@ Snapkit runs OCR **locally**, finds the sensitive bits, and blurs them before yo
 **Preferences**
 
 - Shortcuts, dark/light/system theme, OCR languages (English, Italiano, Deutsch, Français,
-  Español — bundled), export folder & format, recording format, auto-redact after capture
+  Español — bundled), export folder & format, recording format, auto-redact after capture,
+  start at system start (launches silently in the tray)
 
 ## 📦 Install
 

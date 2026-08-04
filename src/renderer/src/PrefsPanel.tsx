@@ -369,6 +369,14 @@ function PrefsPanel({ onBack }: { onBack: () => void }): React.JSX.Element {
             </div>
           </div>
 
+          <Row label="Start at system start">
+            <Toggle
+              ariaLabel="Start at system start"
+              checked={prefs.launchAtLogin}
+              onChange={(v) => patch({ launchAtLogin: v })}
+            />
+          </Row>
+
           <Row label="Auto-redact after capture">
             <Toggle
               ariaLabel="Auto-redact after capture"
