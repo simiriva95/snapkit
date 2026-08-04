@@ -11,13 +11,25 @@ permissions:
   contents: write
 
 jobs:
+  # Create the draft release up front. electron-builder creates it on demand
+  # otherwise, and its publishers run concurrently (one per target, per OS):
+  # each sees "release doesn't exist" and creates its own draft, so the assets
+  # end up split across duplicate drafts of the same tag (happened on v0.4.2).
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          gh release view "$TAG" >/dev/null 2>&1 ||
+            gh release create "$TAG" --draft --title "$TAG" --generate-notes
+
   release:
+    needs: draft
     strategy:
       fail-fast: false
-      # Serial on purpose: in parallel every OS finds "release doesn't exist"
-      # and creates its own draft, so v0.4.2 ended up as two drafts with the
-      # assets split between them. The first job creates it, the rest attach.
-      max-parallel: 1
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
