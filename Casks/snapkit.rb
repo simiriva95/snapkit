@@ -7,7 +7,7 @@
 # version/sha256 are bumped automatically by .github/workflows/release.yml.
 cask "snapkit" do
   version "0.4.2"
-  sha256 "5a81c05de841b76d35d9ce6327706f5783ed52cdcc559fb73b33c48b461b5f47"
+  sha256 "5d0acfcb44fc0042ef6483028d7b9a12f4fce7bcadf9d70eb1653ca32a7b2003"
 
   url "https://github.com/simiriva95/snapkit/releases/download/v#{version}/Snapkit-#{version}-arm64-mac.zip"
   name "Snapkit"
