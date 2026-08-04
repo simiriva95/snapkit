@@ -2,9 +2,9 @@ import { app, dialog, net } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { spawn } from 'child_process'
 import { createWriteStream } from 'fs'
-import { mkdtemp, rm } from 'fs/promises'
+import { mkdtemp, readdir, rename, rm } from 'fs/promises'
 import { tmpdir } from 'os'
-import { join, resolve } from 'path'
+import { basename, dirname, join, resolve } from 'path'
 import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
 
@@ -24,6 +24,7 @@ const CHECK_EVERY_MS = 4 * 60 * 60 * 1000
 export function initAutoUpdate(): void {
   if (!app.isPackaged) return
   if (process.platform === 'darwin') {
+    void sweepOldBundles()
     void checkMacUpdate()
     setInterval(() => void checkMacUpdate(), CHECK_EVERY_MS)
     return
@@ -108,14 +109,52 @@ async function installMacUpdate(url: string): Promise<void> {
     const current = resolve(app.getPath('exe'), '..', '..', '..')
     if (!current.endsWith('.app')) throw new Error(`Unexpected bundle path: ${current}`)
 
-    // Safe while running: open files live on by inode.
-    await rm(current, { recursive: true, force: true })
-    await run('ditto', [next, current])
+    await swapBundle(next, current)
 
     app.relaunch()
     app.exit(0)
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {})
+  }
+}
+
+/** Suffix marking a bundle parked by an update; swept on the next start. */
+const OLD_SUFFIX = '.old-'
+
+/**
+ * Put `next` in place of the running bundle at `current`.
+ *
+ * The old bundle is renamed aside, never deleted in place: `rm -rf` of a live
+ * bundle races with the running app's own processes and dies half-way with
+ * ENOTEMPTY, which leaves nothing installed at all. `rename` is atomic and safe
+ * while running (open files live on by inode), and the leftover is removed on
+ * the next start by `sweepOldBundles`, when nothing holds it any more.
+ */
+export async function swapBundle(next: string, current: string): Promise<void> {
+  // Sibling path, so the rename can never cross a volume boundary (EXDEV).
+  const parked = `${current}${OLD_SUFFIX}${Date.now()}`
+  await rename(current, parked)
+  try {
+    // ditto preserves the code signature; cp can corrupt it.
+    await run('ditto', [next, current])
+  } catch (err) {
+    // Never leave the machine without a working app.
+    await rm(current, { recursive: true, force: true }).catch(() => {})
+    await rename(parked, current)
+    throw err
+  }
+}
+
+/** Delete bundles parked by a previous update — they are unused by now. */
+async function sweepOldBundles(): Promise<void> {
+  const current = resolve(app.getPath('exe'), '..', '..', '..')
+  const parent = dirname(current)
+  const prefix = `${basename(current)}${OLD_SUFFIX}`
+  const entries = await readdir(parent).catch(() => [] as string[])
+  for (const name of entries) {
+    if (name.startsWith(prefix)) {
+      await rm(join(parent, name), { recursive: true, force: true }).catch(() => {})
+    }
   }
 }
 
