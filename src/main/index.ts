@@ -53,7 +53,8 @@ function createWindow(): BrowserWindow {
     win.show()
   })
 
-  // Keep the app alive in the tray when the window is closed.
+  // Keep the app alive in the tray when the user closes the window — but never
+  // when something is actually quitting (see the before-quit handler below).
   win.on('close', (event) => {
     if (!isQuitting) {
       event.preventDefault()
@@ -178,10 +179,7 @@ if (!gotLock) {
         captureScrolling: handlers.scrollingShortcut,
         recordArea: handlers.recordShortcut,
         clipboardHistory: () => openHistoryPanel(),
-        quit: () => {
-          isQuitting = true
-          app.quit()
-        }
+        quit: () => app.quit()
       },
       prefs
     )
@@ -191,6 +189,13 @@ if (!gotLock) {
       if (!mainWindow || mainWindow.isDestroyed()) mainWindow = createWindow()
       mainWindow.show()
     })
+  })
+
+  // Every real quit path (Cmd-Q, AppleScript "quit", SIGTERM, tray Quit) closes
+  // the windows first, where hide-on-close would cancel it. Flip the flag here
+  // so only a user closing the window keeps the app in the tray.
+  app.on('before-quit', () => {
+    isQuitting = true
   })
 
   // Do NOT quit on window-all-closed: this is a tray-resident app.
