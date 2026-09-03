@@ -46,8 +46,8 @@ Not worth it for a v1.
 process. Used for: segment concat, trim (`-c copy`), scale, bitrate-targeted
 re-encode, mp4 ↔ webm ↔ gif (`palettegen` / `paletteuse`). Never used to capture.
 
-**Consequence**: `gifenc` is removed. GIF stops being a *recording* format and becomes
-an *export* format of the suite (better quality via ffmpeg palettes, no 30 s cap).
+**Consequence**: `gifenc` is removed. GIF stops being a _recording_ format and becomes
+an _export_ format of the suite (better quality via ffmpeg palettes, no 30 s cap).
 
 ### 2.1 ffmpeg bundling
 
@@ -63,7 +63,7 @@ an *export* format of the suite (better quality via ffmpeg palettes, no 30 s cap
   so only the target platform's binary ships (~80 MB). Executable bit preserved
   (`chmod 755` in the script; builder keeps mode for extraResources).
 - Path resolution in main: `app.isPackaged ? join(process.resourcesPath, 'ffmpeg', bin)
-  : join(app.getAppPath(), 'resources/ffmpeg', `${platform}-${arch}`, bin)`.
+: join(app.getAppPath(), 'resources/ffmpeg', `${platform}-${arch}`, bin)`.
 - **License**: GPL builds executed as a separate process via CLI, never linked.
   README "Third-party" section lists ffmpeg + GPL + link to its source. This is the
   common industry practice; a lawyer review is a Phase-1 selling item, not a blocker.
@@ -95,16 +95,20 @@ export function runFfmpeg(run: FfmpegRun): Promise<void>
 Argument builders (pure functions, unit-tested) live in `src/shared/videoArgs.ts`:
 
 ```ts
-export function trimArgs(input, output, inSec, outSec): string[]         // -ss/-to -c copy
-export function concatArgs(listFile, output, fromSec?): string[]        // concat demuxer, -c copy, optional output-side -ss
+export function trimArgs(input, output, inSec, outSec): string[] // -ss/-to -c copy
+export function concatArgs(listFile, output, fromSec?): string[] // concat demuxer, -c copy, optional output-side -ss
 export function transcodeArgs(input, output, opts: TranscodeOpts): string[]
-export function gifArgs(input, output, opts: { fps: number; width?: number; inSec?; outSec? }): string[]
+export function gifArgs(
+  input,
+  output,
+  opts: { fps: number; width?: number; inSec?; outSec? }
+): string[]
 
 export interface TranscodeOpts {
   container: 'mp4' | 'webm'
-  height?: 1440 | 1080 | 720 | 480            // scale=-2:h, keep aspect
-  quality?: 'high' | 'medium' | 'low'         // crf 18 / 23 / 28 (libx264) or 30 / 35 / 40 (libvpx-vp9)
-  targetMB?: number                           // overrides quality: bitrate = targetMB*8192/durationSec - audioKbps
+  height?: 1440 | 1080 | 720 | 480 // scale=-2:h, keep aspect
+  quality?: 'high' | 'medium' | 'low' // crf 18 / 23 / 28 (libx264) or 30 / 35 / 40 (libvpx-vp9)
+  targetMB?: number // overrides quality: bitrate = targetMB*8192/durationSec - audioKbps
   durationSec: number
   mute?: boolean
   inSec?: number
@@ -126,12 +130,24 @@ and land the ffmpeg plumbing. Nothing user-visible.
 
 Checks (a throwaway `spike.html` loaded by a dev-only IPC, deleted before merge):
 
-| # | Assumption | Fallback if false |
-|---|---|---|
-| 1 | `MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,mp4a.40.2')` is true | Record `video/webm;codecs=vp9,opus`, ffmpeg remuxes/transcodes to mp4 after stop (slower stop, same UX). |
-| 2 | `setDisplayMediaRequestHandler(..., { video, audio: 'loopback' })` yields a system-audio track on macOS 13+ | macOS: mic only; Windows: mic + system. Prefs UI hides "system audio" where unsupported. |
-| 3 | `getDisplayMedia({ video: { width: { max: 1920 }, height: { max: 1080 } } })` downscales the screen track (check `track.getSettings()`) | Route full/window recordings through the existing canvas path (crop = full frame, scale = preset). |
-| 4 | Bundled ffmpeg spawns from a **packaged** build (`ffmpeg -version`), and from `npm run dev` | Fix path resolution / permissions; this must pass. |
+| #   | Assumption                                                                                                                              | Fallback if false                                                                                        | Result                                                                                                                                                                      |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,mp4a.40.2')` is true                                                              | Record `video/webm;codecs=vp9,opus`, ffmpeg remuxes/transcodes to mp4 after stop (slower stop, same UX). | ✅ `video/mp4;codecs=avc1,mp4a.40.2` supported; recorded blob decodes (1662×1078, 2.97s).                                                                                   |
+| 2   | `setDisplayMediaRequestHandler(..., { video, audio: 'loopback' })` yields a system-audio track on macOS 13+                             | Confirmed true — system audio is offered on both macOS and Windows.                                      | ✅ `audio tracks: 1 (System audio, deviceId "loopback")` on macOS, despite the typings marking `audio: 'loopback'` Windows-only.                                            |
+| 3   | `getDisplayMedia({ video: { width: { max: 1920 }, height: { max: 1080 } } })` downscales the screen track (check `track.getSettings()`) | Route full/window recordings through the existing canvas path (crop = full frame, scale = preset).       | ✅ screen 3024×1964 physical → track reported 1920×1080; decoded video 1662×1078 (aspect-preserving fit, not the raw constraint).                                           |
+| 4   | Bundled ffmpeg spawns from a **packaged** build (`ffmpeg -version`), and from `npm run dev`                                             | Fix path resolution / permissions; this must pass.                                                       | ✅ dev: spawns, `ffmpeg version 6.0`. Packaged: spawns `Resources/ffmpeg/ffmpeg` (45.3 MB, 0 entries in app.asar), `${os}-${arch}` macro expanded correctly, no fix needed. |
+
+**Outcome**: check 1 ✅ → V1 records mp4 directly, no webm fallback needed · check 2 ✅
+on macOS (contrary to typings marking `audio: 'loopback'` Windows-only) → V1 offers
+"system audio" on both macOS and Windows, but the loopback track came back voice-processed
+by default (`channelCount: 1`, `echoCancellation`/`noiseSuppression`/`autoGainControl`
+all `true`) — V1 must request `audio: { echoCancellation: false, noiseSuppression: false,
+autoGainControl: false, channelCount: 2 }` for system audio · check 3 ✅ → screen/window
+recordings use constraints, no canvas, but the constraint is applied as an
+aspect-preserving fit (3024×1964 → 1920×1080 requested → 1662×1078 decoded), so
+`track.getSettings()` does not report the real output size — V1 must read actual size
+from the decoded video, and key the bitrate table off the preset rather than the
+reported track size · check 4 ✅, dev and packaged, no fix needed.
 
 Deliverables: `scripts/setup-ffmpeg.mjs`, `resources/ffmpeg/` (git-ignored),
 `src/main/ffmpeg.ts`, `src/shared/videoArgs.ts` + tests, `electron-builder.yml`
@@ -143,11 +159,11 @@ Deliverables: `scripts/setup-ffmpeg.mjs`, `resources/ffmpeg/` (git-ignored),
 
 **Sources**
 
-| Source | Entry | Selection UI |
-|---|---|---|
-| Area | tray "Record Area…", `recordShortcut` | existing overlay → rect |
+| Source      | Entry                                             | Selection UI                |
+| ----------- | ------------------------------------------------- | --------------------------- |
+| Area        | tray "Record Area…", `recordShortcut`             | existing overlay → rect     |
 | Full screen | tray "Record Screen…", new `recordScreenShortcut` | display under cursor, no UI |
-| Window | tray "Record Window…", new `recordWindowShortcut` | existing `picker.html` |
+| Window      | tray "Record Window…", new `recordWindowShortcut` | existing `picker.html`      |
 
 `CaptureMode` gains `'record-screen' | 'record-window'`. `capture.ts` dispatches; the
 window path reuses `windowPicker.ts` and feeds the chosen `source.id` to the display
@@ -156,13 +172,13 @@ media handler (extend `pendingDisplayId` into a `pendingSource: { displayId?; so
 **Prefs** (`src/shared/prefs.ts`)
 
 ```ts
-recordFormat: 'mp4' | 'webm'            // mp4 default; 'gif' removed (migration: gif → mp4)
+recordFormat: 'mp4' | 'webm' // mp4 default; 'gif' removed (migration: gif → mp4)
 recordResolution: 'native' | 1440 | 1080 | 720
 recordFps: 30 | 60
-recordMic: boolean                       // default false
-recordSystemAudio: boolean               // default true where supported
-recordScreenShortcut: string             // default 'CommandOrControl+Shift+9'
-recordWindowShortcut: string             // default 'CommandOrControl+Shift+0'
+recordMic: boolean // default false
+recordSystemAudio: boolean // default true where supported
+recordScreenShortcut: string // default 'CommandOrControl+Shift+9'
+recordWindowShortcut: string // default 'CommandOrControl+Shift+0'
 ```
 
 Prefs panel gets a "Recording" section: format, resolution, fps, two audio toggles,
@@ -172,14 +188,14 @@ shortcuts (existing shortcut-field component).
 
 - `RecordJob` gains `source: 'area' | 'screen' | 'window'`, `resolution`, `fps`,
   `mic`, `systemAudio`, `mimeType`.
-- Area: existing canvas crop path, canvas sized to the preset (aspect kept), 
+- Area: existing canvas crop path, canvas sized to the preset (aspect kept),
   `canvas.captureStream(fps)`.
 - Screen / window: no canvas. Constraints `{ frameRate: fps, width: { max }, height: { max } }`
   (or canvas fallback per V0 #3).
 - Audio: mic via `getUserMedia({ audio: true })`; system via the display-media
   stream's audio track. Both present → merged with `AudioContext` +
   `MediaStreamAudioDestinationNode` into one track. The recorded stream = video track
-  + merged audio track.
+  - merged audio track.
 - `MediaRecorder(stream, { mimeType, videoBitsPerSecond })`, bitrate table by
   resolution × fps (1080p30 8 Mbps, 1080p60 12, 1440p60 20, native 60 ≈ 25).
 - Chunks buffered in memory (`recorder.start(1000)`); on stop the blob goes to main
@@ -197,17 +213,17 @@ Tray menu gains the two entries; `shortcuts.ts` registers the two new accelerato
 **Prefs**
 
 ```ts
-replayBuffer: 0 | 30 | 60 | 120 | 300     // seconds; 0 = off (default)
-replayShortcut: string                    // default 'CommandOrControl+Shift+8'
-clipsDir: string | null                   // default ~/Movies/Snapkit Clips (Videos on Win/Linux)
-clipOpenInEditor: boolean                 // default false: save silently, toast only
+replayBuffer: 0 | 30 | 60 | 120 | 300 // seconds; 0 = off (default)
+replayShortcut: string // default 'CommandOrControl+Shift+8'
+clipsDir: string | null // default ~/Movies/Snapkit Clips (Videos on Win/Linux)
+clipOpenInEditor: boolean // default false: save silently, toast only
 ```
 
 **Runtime** (`src/main/replay.ts` + hidden `replay.html` renderer)
 
 - When `replayBuffer > 0` at startup or when the pref changes: main opens a hidden
   BrowserWindow loading `replay.html`, sends `replayStart` with `{ fps, resolution,
-  systemAudio, mic, segmentSec: 10, keepSec }`. Records the **display under the cursor
+systemAudio, mic, segmentSec: 10, keepSec }`. Records the **display under the cursor
   at start** (re-evaluated on each restart if the pref is toggled); multi-display
   follow is out of scope.
 - The renderer holds **one** `getDisplayMedia` stream and restarts a `MediaRecorder`
@@ -215,7 +231,7 @@ clipOpenInEditor: boolean                 // default false: save silently, toast
   `replaySegment` (ArrayBuffer) → written to `app.getPath('temp')/snapkit-replay/seg-<ts>.mp4`.
   Main keeps a ring of the newest `ceil(keepSec / 10) + 1` files, unlinks the rest.
   - `// ponytail: one frame lost at every 10 s boundary; upgrade path = two overlapping
-    recorders trimmed by timestamps.`
+recorders trimmed by timestamps.`
 - Disk ceiling: 5 min @ 1080p60 ≈ 750 MB temp. Stated in the prefs UI hint.
 - Tray icon swaps to a variant with a red dot while the buffer runs (new asset from
   `make-tray-icon.mjs`). Tray menu item "Save Replay (N s)" mirrors the hotkey.
@@ -314,15 +330,15 @@ replayShortcut ─▶ replay.ts ─▶ ring of 10 s mp4 segments (hidden replay.
 
 ## 5. Error handling
 
-| Situation | Behaviour |
-|---|---|
+| Situation                           | Behaviour                                                                       |
+| ----------------------------------- | ------------------------------------------------------------------------------- |
 | Screen Recording permission missing | existing `capture.ts` prompt; buffer stays off and prefs toggle shows a warning |
-| Mic permission denied | record without mic, toast once |
-| `MediaRecorder` throws / no data | main teardown as today, toast "Recording failed" with the error |
-| ffmpeg missing / not executable | export button disabled, toast pointing to reinstall; replay pref disabled |
-| ffmpeg exit ≠ 0 | toast with last stderr lines, partial file removed |
-| Disk full during replay | segment write fails → buffer stops, toast, tray icon back to normal |
-| Suite file no longer exists | player shows "File moved or deleted", export disabled |
+| Mic permission denied               | record without mic, toast once                                                  |
+| `MediaRecorder` throws / no data    | main teardown as today, toast "Recording failed" with the error                 |
+| ffmpeg missing / not executable     | export button disabled, toast pointing to reinstall; replay pref disabled       |
+| ffmpeg exit ≠ 0                     | toast with last stderr lines, partial file removed                              |
+| Disk full during replay             | segment write fails → buffer stops, toast, tray icon back to normal             |
+| Suite file no longer exists         | player shows "File moved or deleted", export disabled                           |
 
 ---
 

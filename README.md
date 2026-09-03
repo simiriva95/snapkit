@@ -159,15 +159,15 @@ src/
   shared/     typed IPC contract, redaction patterns, prefs/license models
 ```
 
-| Concern      | Choice                                                                  |
-| ------------ | ----------------------------------------------------------------------- |
-| Shell        | Electron + electron-vite (strict process separation, sandbox, prod CSP) |
-| UI           | React 19 · Tailwind CSS v4 · Konva canvas                               |
-| OCR          | Tesseract.js — worker/WASM/language packs self-hosted                   |
-| Segmentation | @imgly/background-removal — ONNX, self-hosted, quantized model          |
-| Recording    | getDisplayMedia + canvas crop → MediaRecorder (WebM) / gifenc (GIF)     |
-| Persistence  | electron-store                                                          |
-| Packaging    | electron-builder (dmg/zip, NSIS, AppImage/deb) + electron-updater       |
+| Concern      | Choice                                                                                 |
+| ------------ | -------------------------------------------------------------------------------------- |
+| Shell        | Electron + electron-vite (strict process separation, sandbox, prod CSP)                |
+| UI           | React 19 · Tailwind CSS v4 · Konva canvas                                              |
+| OCR          | Tesseract.js — worker/WASM/language packs self-hosted                                  |
+| Segmentation | @imgly/background-removal — ONNX, self-hosted, quantized model                         |
+| Recording    | getDisplayMedia → MediaRecorder; post-processing via bundled ffmpeg (setup-ffmpeg.mjs) |
+| Persistence  | electron-store                                                                         |
+| Packaging    | electron-builder (dmg/zip, NSIS, AppImage/deb) + electron-updater                      |
 
 Details worth stealing:
 
@@ -204,6 +204,7 @@ npm run typecheck   # strict TS, main + renderer
 npm run lint        # eslint flat config
 npm run gen:appicon # regenerate build/icon.png (programmatic, no design tools)
 npm run gen:icon    # regenerate the tray template icons
+node scripts/setup-ffmpeg.mjs   # fetch the pinned static ffmpeg for this machine (predev does it too)
 ```
 
 CI builds installers for the three OSes on every `v*` tag ([release.yml](.github/workflows/release.yml)).
@@ -212,6 +213,13 @@ CI builds installers for the three OSes on every `v*` tag ([release.yml](.github
 
 Cloud share links (opt-in, client-side encrypted), sync, team features, plugin API —
 see [ROADMAP.md](ROADMAP.md) for the phased plan and what was deliberately left out.
+
+## Third-party binaries
+
+- **ffmpeg 6.0** — static GPL build from [eugeneware/ffmpeg-static](https://github.com/eugeneware/ffmpeg-static)
+  (release `b6.1.1`), fetched at build time by `scripts/setup-ffmpeg.mjs`, SHA-256 pinned.
+  Executed as a separate process for video trim/convert/compress — never linked into the app.
+  Source and license: <https://ffmpeg.org/legal.html>.
 
 ## License
 

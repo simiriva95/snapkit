@@ -47,12 +47,12 @@ offline-pure, +76MB) · 2.2 ✅ · 2.3 ✅ (bundled packs, not lazy) · 2.4 ✅ 
 Cloud features conflict with "never leaves your device" — resolve by **opt-in per action**
 (explicit "Upload" button, never automatic) + honest copy. Each unlocks subscription pricing.
 
-| #   | Item                                  | Effort | Note                                                                                                                                                                   |
-| --- | ------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 3.1 | Video / GIF recording                 | XL     | `desktopCapturer` → MediaRecorder (webm) → mp4/gif via bundled ffmpeg-wasm. Separate editor (trim). Biggest ask from CleanShot parity; do only after Phase 2 traction. |
-| 3.2 | Cloud upload + shareable links        | L      | The only server-side product surface. S3+CDN, link = `snap.kit/x7Ab3`. Optional client-side encryption (key in fragment) to keep the privacy story. Paid tier.         |
-| 3.3 | Sync (prefs/templates across devices) | M      | Rides on 3.2's account infra. Not before it.                                                                                                                           |
-| 3.4 | Team version                          | XL     | Shared workspaces, admin, SSO. Only with real demand signals from 3.2 users.                                                                                           |
+| #   | Item                                  | Effort | Note                                                                                                                                                           |
+| --- | ------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 3.1 | Video / GIF recording                 | XL     | **In progress** — see `docs/superpowers/specs/2026-09-03-video-suite-design.md` (V0 ffmpeg plumbing ✅, V1 recorder, V2 replay buffer, V3 editor).             |
+| 3.2 | Cloud upload + shareable links        | L      | The only server-side product surface. S3+CDN, link = `snap.kit/x7Ab3`. Optional client-side encryption (key in fragment) to keep the privacy story. Paid tier. |
+| 3.3 | Sync (prefs/templates across devices) | M      | Rides on 3.2's account infra. Not before it.                                                                                                                   |
+| 3.4 | Team version                          | XL     | Shared workspaces, admin, SSO. Only with real demand signals from 3.2 users.                                                                                   |
 
 ## Phase 4 — Platform
 
