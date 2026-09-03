@@ -24,6 +24,9 @@ export interface TranscodeOpts {
 
 const AUDIO_KBPS = 128
 const MIN_VIDEO_KBPS = 300
+// ffmpeg's `k` suffix is DECIMAL (1000), so a megabyte of budget is 8000 kbit.
+// Using 8192 mixes MiB with decimal k and overshoots the target by ~2.4%.
+const KBIT_PER_MB = 8000
 const CRF: Record<Container, Record<Quality, number>> = {
   mp4: { high: 18, medium: 23, low: 28 },
   webm: { high: 30, medium: 35, low: 40 }
@@ -36,8 +39,13 @@ const range = (inSec?: number, outSec?: number): string[] => [
 
 /** Video bitrate (kbps) that lands a file of targetMB over durationSec. */
 export function videoKbpsForTarget(targetMB: number, durationSec: number, mute: boolean): number {
+  // Chromium reports Infinity/NaN duration for a fresh MediaRecorder blob, and a
+  // zero-length trim gives 0 — all three would silently produce a garbage bitrate.
+  if (!Number.isFinite(durationSec) || durationSec <= 0) {
+    throw new RangeError('videoKbpsForTarget: durationSec must be a positive finite number')
+  }
   // ponytail: single-pass ABR with maxrate; two-pass if exact sizes ever matter.
-  const totalKbps = (targetMB * 8192) / durationSec
+  const totalKbps = (targetMB * KBIT_PER_MB) / durationSec
   return Math.max(MIN_VIDEO_KBPS, Math.round(totalKbps - (mute ? 0 : AUDIO_KBPS)))
 }
 

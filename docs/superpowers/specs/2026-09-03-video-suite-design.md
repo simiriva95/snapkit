@@ -114,7 +114,7 @@ export interface TranscodeOpts {
   container: 'mp4' | 'webm'
   height?: 1440 | 1080 | 720 | 480 // scale=-2:h, keep aspect
   quality?: 'high' | 'medium' | 'low' // crf 18 / 23 / 28 (libx264) or 30 / 35 / 40 (libvpx-vp9)
-  targetMB?: number // overrides quality: bitrate = targetMB*8192/durationSec - audioKbps
+  targetMB?: number // overrides quality: bitrate = targetMB*8000/durationSec - audioKbps
   durationSec: number
   mute?: boolean
   inSec?: number

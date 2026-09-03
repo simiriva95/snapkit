@@ -55,15 +55,21 @@ describe('concatArgs', () => {
 })
 
 describe('videoKbpsForTarget', () => {
-  it('budgets 8192 kbit per MB minus 128 kbps audio', () => {
-    // 10 MB over 60 s = 1365.3 kbps total → 1237 for video.
-    expect(videoKbpsForTarget(10, 60, false)).toBe(1237)
+  it('budgets 8000 kbit per MB minus 128 kbps audio', () => {
+    // ffmpeg's `k` is decimal: 10 MB over 60 s = 1333.3 kbps total → 1205 for video.
+    expect(videoKbpsForTarget(10, 60, false)).toBe(1205)
   })
   it('gives the audio budget back when muted', () => {
-    expect(videoKbpsForTarget(10, 60, true)).toBe(1365)
+    expect(videoKbpsForTarget(10, 60, true)).toBe(1333)
   })
   it('never goes below 300 kbps', () => {
     expect(videoKbpsForTarget(1, 600, false)).toBe(300)
+  })
+  it('rejects a non-positive or non-finite duration', () => {
+    // Chromium hands back Infinity/NaN for a fresh MediaRecorder blob.
+    expect(() => videoKbpsForTarget(10, 0, false)).toThrow(RangeError)
+    expect(() => videoKbpsForTarget(10, Infinity, false)).toThrow(RangeError)
+    expect(() => videoKbpsForTarget(10, NaN, false)).toThrow(RangeError)
   })
 })
 
@@ -124,7 +130,7 @@ describe('transcodeArgs', () => {
     ])
   })
   it('target size uses the TRIMMED duration and caps the bitrate', () => {
-    // 10 s kept out of 30 → 5 MB over 10 s = 4096 kbps → 3968 video.
+    // 10 s kept out of 30 → 5 MB over 10 s = 4000 kbps → 3872 video.
     expect(
       transcodeArgs('in.mp4', 'out.mp4', {
         container: 'mp4',
@@ -149,11 +155,11 @@ describe('transcodeArgs', () => {
       '-movflags',
       '+faststart',
       '-b:v',
-      '3968k',
+      '3872k',
       '-maxrate',
-      '3968k',
+      '3872k',
       '-bufsize',
-      '7936k',
+      '7744k',
       '-c:a',
       'aac',
       '-b:a',
