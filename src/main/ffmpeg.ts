@@ -77,8 +77,11 @@ export function runFfmpeg(run: FfmpegRun, bin: string = ffmpegPath()): Promise<v
     if (run.signal?.aborted) onAbort()
 
     const fail = (why: string): void => {
-      const cleanup = output ? rm(output, { force: true }) : Promise.resolve()
-      void cleanup.finally(() => reject(new Error(why)))
+      // Best-effort cleanup: a locked/undeletable partial file must not mask the real error.
+      const cleanup = output
+        ? rm(output, { force: true }).catch(() => undefined)
+        : Promise.resolve()
+      void cleanup.then(() => reject(new Error(why)))
     }
 
     child.on('error', (err) => {
