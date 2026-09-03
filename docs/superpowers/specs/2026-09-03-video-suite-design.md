@@ -96,7 +96,7 @@ Argument builders (pure functions, unit-tested) live in `src/shared/videoArgs.ts
 
 ```ts
 export function trimArgs(input, output, inSec, outSec): string[]         // -ss/-to -c copy
-export function concatArgs(listFile, output, keepLastSec?): string[]    // concat demuxer, -c copy, optional -sseof
+export function concatArgs(listFile, output, fromSec?): string[]        // concat demuxer, -c copy, optional output-side -ss
 export function transcodeArgs(input, output, opts: TranscodeOpts): string[]
 export function gifArgs(input, output, opts: { fps: number; width?: number; inSec?; outSec? }): string[]
 
@@ -220,8 +220,9 @@ clipOpenInEditor: boolean                 // default false: save silently, toast
 - Tray icon swaps to a variant with a red dot while the buffer runs (new asset from
   `make-tray-icon.mjs`). Tray menu item "Save Replay (N s)" mirrors the hotkey.
 - Hotkey → main: `flash` (existing) + toast "Saving clip…", writes a concat list of
-  the ring files (ordered), `runFfmpeg(concatArgs(list, out, keepSec))` where the trim
-  uses `-sseof -keepSec` on the concat input. Output name
+  the ring files (ordered), `runFfmpeg(concatArgs(list, out, totalSec - keepSec))` — main knows each
+  segment's duration, so it seeks forward instead of relying on `-sseof` (unreliable
+  with the concat demuxer). Output name
   `Snapkit Clip YYYY-MM-DD at HH.MM.SS.mp4` in `clipsDir`. Then toast "Clip saved"
   (click → `showItemInFolder`), or open in the suite if `clipOpenInEditor`.
 - Sleep/wake, display disconnect, or renderer crash → main restarts the buffer
@@ -306,7 +307,7 @@ tray / hotkey ─▶ capture.ts ─▶ recorder.ts ─▶ hidden recorder.html
                                                             ffmpeg.ts runFfmpeg ─▶ output
 
 replayShortcut ─▶ replay.ts ─▶ ring of 10 s mp4 segments (hidden replay.html)
-                       └─▶ concat + -sseof ─▶ clipsDir/*.mp4 ─▶ toast / suite
+                       └─▶ concat + -ss ─▶ clipsDir/*.mp4 ─▶ toast / suite
 ```
 
 ---
