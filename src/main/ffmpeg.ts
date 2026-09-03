@@ -31,7 +31,7 @@ export function ffmpegPath(): string {
 }
 
 export interface FfmpegRun {
-  /** Full argument list; the OUTPUT PATH MUST BE LAST (deleted on failure/abort). */
+  /** Full argument list; the LAST element must be a real output file path — ffmpeg writes a sibling temp file that is renamed into place on success (no stdout `-`). */
   args: string[]
   /** Total duration in seconds; turns stderr `time=` into 0..1 progress. */
   durationSec?: number
