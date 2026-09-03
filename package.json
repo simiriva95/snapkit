@@ -7,9 +7,9 @@
   "homepage": "https://github.com/simiriva95/snapkit",
   "license": "SEE LICENSE IN README.md",
   "scripts": {
-    "predev": "node scripts/setup-ocr.mjs && node scripts/setup-bgr.mjs",
+    "predev": "node scripts/setup-ocr.mjs && node scripts/setup-bgr.mjs && node scripts/setup-ffmpeg.mjs",
     "dev": "electron-vite dev",
-    "prebuild": "node scripts/setup-ocr.mjs && node scripts/setup-bgr.mjs",
+    "prebuild": "node scripts/setup-ocr.mjs && node scripts/setup-bgr.mjs && node scripts/setup-ffmpeg.mjs",
     "build": "electron-vite build",
     "package": "npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --publish never",
     "package:winmac": "npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder -mw --publish never",
