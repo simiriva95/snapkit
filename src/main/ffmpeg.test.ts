@@ -23,11 +23,13 @@ describe('parseTimeSec', () => {
 })
 
 // Real-binary integration. Skipped where setup-ffmpeg.mjs has not run (e.g. an
-// unsupported host) so the suite stays green everywhere.
+// unsupported host) so the suite stays green everywhere — except in CI, which
+// runs setup-ffmpeg.mjs before `npm test`: a missing binary there is a broken
+// pipeline and must fail loudly instead of silently skipping these tests.
 const hasBinary = existsSync(ffmpegPath())
 const tmp = (): string => mkdtempSync(join(tmpdir(), 'snapkit-ffmpeg-'))
 
-describe.skipIf(!hasBinary)('runFfmpeg (real binary)', () => {
+describe.skipIf(!hasBinary && !process.env['CI'])('runFfmpeg (real binary)', () => {
   it('encodes a synthetic 1s clip and reports progress ending at 1', async () => {
     const out = join(tmp(), 'out.mp4')
     const progress: number[] = []

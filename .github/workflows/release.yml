@@ -46,6 +46,10 @@ jobs:
       # Some environments skip electron's postinstall binary download.
       - run: node node_modules/electron/install.js
 
+      # The real-binary ffmpeg tests refuse to skip in CI (src/main/ffmpeg.test.ts),
+      # so the binary has to be here before `npm test`.
+      - run: node scripts/setup-ffmpeg.mjs
+
       - run: npm test
       - run: npm run typecheck
 

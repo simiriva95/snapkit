@@ -16,6 +16,11 @@ extraResources:
   - from: resources/ffmpeg/${os}-${arch}/
     to: ffmpeg/
 
+# A missing extraResources source is only a WARNING in electron-builder, so
+# cross-platform packaging would silently ship an installer without ffmpeg.
+# This hook turns that into a hard failure.
+beforePack: scripts/before-pack.mjs
+
 # Signing is env-driven (see docs/selling.md): local `npm run package` skips
 # it via CSC_IDENTITY_AUTO_DISCOVERY=false; CI signs when secrets are present
 # (CSC_LINK/CSC_KEY_PASSWORD; notarization via APPLE_ID/APPLE_APP_SPECIFIC_PASSWORD/APPLE_TEAM_ID).
