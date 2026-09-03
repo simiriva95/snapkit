@@ -8,6 +8,7 @@ import { getPrefs, registerPrefsIpc, type ShortcutField } from './prefs'
 import { registerLicenseIpc } from './license'
 import { APP_URL, registerAppScheme, serveRenderer } from './protocol'
 import { registerRecorderIpc, setupDisplayMediaHandler } from './recorder'
+import { initSpike } from './spike'
 import { registerShortcut, unregisterShortcuts } from './shortcuts'
 import { applyLaunchAtLogin, launchedAtLogin } from './loginItem'
 import { initAutoUpdate } from './updater'
@@ -137,6 +138,7 @@ if (!gotLock) {
     registerExportIpc()
     registerRecorderIpc(host)
     setupDisplayMediaHandler()
+    initSpike()
     initOcrIndex()
     initHistory()
 
