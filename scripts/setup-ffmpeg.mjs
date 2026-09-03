@@ -3,33 +3,52 @@
 // post-processing (trim/concat/transcode/gif). Shipped via electron-builder
 // extraResources — only the host's binary, never all four.
 //
-// Idempotent: skips when the file exists and its SHA-256 matches. Wired into
-// predev/prebuild like setup-ocr.mjs / setup-bgr.mjs. Fatal on hash mismatch.
+// Sources: Martin Riedl (macOS, <https://ffmpeg.martin-riedl.de/>) and BtbN
+// (Windows/Linux, <https://github.com/BtbN/FFmpeg-Builds>), ffmpeg 9.0.1,
+// GPLv3 builds (`--enable-gpl --enable-version3`) with NO `--enable-nonfree`
+// component — so they are legally redistributable. Executed as a separate
+// process, never linked. The SHA-256 of each ARCHIVE is pinned below.
+//
+// Idempotent: skips when the binary exists and the .sha256 marker next to it
+// matches the pinned archive hash. Wired into predev/prebuild like
+// setup-ocr.mjs / setup-bgr.mjs. Fatal on hash mismatch.
 import { createHash } from 'node:crypto'
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { spawnSync } from 'node:child_process'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  closeSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
+import { basename, join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = dirname(fileURLToPath(new URL('.', import.meta.url)))
 
-// GPL static builds (ffmpeg 6.0). Executed as a separate process, never linked.
-const RELEASE = 'https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/'
 const BUILDS = {
   'mac-arm64': {
-    asset: 'ffmpeg-darwin-arm64',
-    sha256: 'a90e3db6a3fd35f6074b013f948b1aa45b31c6375489d39e572bea3f18336584'
+    url: 'https://ffmpeg.martin-riedl.de/download/macos/arm64/1787073674_9.0.1/ffmpeg.zip',
+    sha256: '8287a1b2229e05eb41859f073e18e6c52c60a778f2f5e6881070fe51b79407fe',
+    entry: 'ffmpeg'
   },
   'mac-x64': {
-    asset: 'ffmpeg-darwin-x64',
-    sha256: 'ebdddc936f61e14049a2d4b549a412b8a40deeff6540e58a9f2a2da9e6b18894'
-  },
-  'linux-x64': {
-    asset: 'ffmpeg-linux-x64',
-    sha256: 'e7e7fb30477f717e6f55f9180a70386c62677ef8a4d4d1a5d948f4098aa3eb99'
+    url: 'https://ffmpeg.martin-riedl.de/download/macos/amd64/1787081194_9.0.1/ffmpeg.zip',
+    sha256: '5bdead62ff504ab9b447cc72b212c4fb481e3f7de5877d427a51bee8136dda40',
+    entry: 'ffmpeg'
   },
   'win-x64': {
-    asset: 'ffmpeg-win32-x64',
-    sha256: '04e1307997530f9cf2fe35cba2ca7e8875ca91da02f89d6c7243df819c94ad00'
+    url: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-02-13-13/ffmpeg-n9.0.1-11-ge47273f4d9-win64-gpl-9.0.zip',
+    sha256: '232c44b96c3e553c5e57311fad22eb5f8feaee7246ebc68310c9ea53bcca4a52',
+    entry: 'ffmpeg-n9.0.1-11-ge47273f4d9-win64-gpl-9.0/bin/ffmpeg.exe'
+  },
+  'linux-x64': {
+    url: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-02-13-13/ffmpeg-n9.0.1-11-ge47273f4d9-linux64-gpl-9.0.tar.xz',
+    sha256: 'd48023b23ebce963c7ff2e68810dfd2cbf8dd6be9a2a7c17b3daef6d6c888507',
+    entry: 'ffmpeg-n9.0.1-11-ge47273f4d9-linux64-gpl-9.0/bin/ffmpeg'
   }
 }
 
@@ -37,7 +56,9 @@ const BUILDS = {
 const OS = { darwin: 'mac', win32: 'win', linux: 'linux' }
 const key = `${OS[process.platform]}-${process.arch}`
 const bin = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'
-const dest = join(root, 'resources/ffmpeg', key, bin)
+const dir = join(root, 'resources/ffmpeg', key)
+const dest = join(dir, bin)
+const marker = join(dir, '.sha256')
 
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex')
 
@@ -47,21 +68,55 @@ async function main() {
     console.warn(`[setup-ffmpeg] WARNING: no ffmpeg build for ${key} — video features disabled`)
     return
   }
-  if (existsSync(dest) && sha256(readFileSync(dest)) === build.sha256) {
+  // The binary is extracted from the archive, so its own hash is not the pinned
+  // one: the marker file records which archive it came from.
+  if (
+    existsSync(dest) &&
+    existsSync(marker) &&
+    readFileSync(marker, 'utf8').trim() === build.sha256
+  ) {
     console.log('[setup-ffmpeg] binary already present')
     return
   }
-  const url = RELEASE + build.asset
-  console.log(`[setup-ffmpeg] downloading ${build.asset}…`)
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`)
+
+  const archive = join(dir, basename(build.url))
+  console.log(`[setup-ffmpeg] downloading ${basename(build.url)}…`)
+  const res = await fetch(build.url)
+  if (!res.ok) throw new Error(`${build.url}: HTTP ${res.status}`)
   const buf = Buffer.from(await res.arrayBuffer())
   const got = sha256(buf)
-  if (got !== build.sha256) throw new Error(`${build.asset}: SHA-256 mismatch (got ${got})`)
-  mkdirSync(dirname(dest), { recursive: true })
-  writeFileSync(dest, buf)
+  if (got !== build.sha256) throw new Error(`${basename(build.url)}: SHA-256 mismatch (got ${got})`)
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(archive, buf)
+
+  // `tar -xO` extracts one entry to stdout and auto-detects the format
+  // everywhere we build: bsdtar (macOS, Windows 10+) reads zip, GNU tar
+  // (Linux) reads xz.
+  const fd = openSync(dest, 'w')
+  try {
+    const tar = spawnSync('tar', ['-xOf', archive, build.entry], {
+      stdio: ['ignore', fd, 'inherit']
+    })
+    if (tar.error) throw tar.error
+    if (tar.status !== 0)
+      throw new Error(`tar -xOf ${basename(archive)} ${build.entry}: exit ${tar.status}`)
+  } finally {
+    closeSync(fd)
+  }
   chmodSync(dest, 0o755)
-  console.log(`[setup-ffmpeg] ${(buf.length / 1e6).toFixed(0)}MB → resources/ffmpeg/${key}/${bin}`)
+  rmSync(archive, { force: true })
+  writeFileSync(marker, `${build.sha256}\n`)
+
+  // Sanity: an archive that extracted the wrong entry, or a truncated write,
+  // would otherwise surface as a confusing runtime error in the video editor.
+  const probe = spawnSync(dest, ['-version'], { encoding: 'utf8' })
+  if (probe.status !== 0) {
+    throw new Error(`${dest} -version failed: ${probe.error?.message ?? `exit ${probe.status}`}`)
+  }
+  console.log(`[setup-ffmpeg] ${probe.stdout.split('\n')[0]}`)
+  console.log(
+    `[setup-ffmpeg] ${(buf.length / 1e6).toFixed(0)}MB archive → resources/ffmpeg/${key}/${bin}`
+  )
 }
 
 main().catch((err) => {

@@ -52,19 +52,25 @@ an _export_ format of the suite (better quality via ffmpeg palettes, no 30 s cap
 ### 2.1 ffmpeg bundling
 
 - `scripts/setup-ffmpeg.mjs` (same pattern as `setup-ocr.mjs` / `setup-bgr.mjs`):
-  runs in `predev` / `prebuild`, downloads the static build for the **host** platform
-  into `resources/ffmpeg/<platform>-<arch>/ffmpeg[.exe]`, skips if present, verifies
-  a pinned SHA-256 per URL.
-- Sources (pinned versions, recorded in the script):
-  - macOS arm64 / x64: evermeet.cx static build (GPL).
-  - Windows x64: BtbN `ffmpeg-n7.x-latest-win64-gpl`.
-  - Linux x64: BtbN `ffmpeg-n7.x-latest-linux64-gpl`.
+  runs in `predev` / `prebuild`, downloads the static-build **archive** for the **host**
+  platform, verifies its pinned SHA-256, then extracts the single ffmpeg entry with
+  `tar -xOf <archive> <entry>` (bsdtar reads zip on macOS/Windows, GNU tar reads xz on
+  Linux) into `resources/ffmpeg/<platform>-<arch>/ffmpeg[.exe]`, chmods it 755, deletes
+  the archive and writes the archive hash to a `.sha256` marker next to the binary
+  (the extracted binary's own hash is not the pinned one, so the marker is what makes
+  the script idempotent). Post-extract it runs `ffmpeg -version` as a sanity check.
+- Sources — ffmpeg **9.0.1**, **GPLv3** (`--enable-gpl --enable-version3`, no
+  `--enable-nonfree`), pinned per URL in the script:
+  - macOS arm64 / x64: [Martin Riedl](https://ffmpeg.martin-riedl.de/) static builds
+    (66 MB / 95 MB extracted; 28 MB / 34 MB archives).
+  - Windows x64: BtbN `ffmpeg-n9.0.1-…-win64-gpl-9.0` (145 MB extracted, 169 MB archive).
+  - Linux x64: BtbN `ffmpeg-n9.0.1-…-linux64-gpl-9.0` (146 MB extracted, 127 MB archive).
 - `electron-builder.yml`: `extraResources: [{ from: resources/ffmpeg/${os}-${arch}, to: ffmpeg }]`
-  so only the target platform's binary ships (~80 MB). Executable bit preserved
+  so only the target platform's binary ships. Executable bit preserved
   (`chmod 755` in the script; builder keeps mode for extraResources).
 - Path resolution in main: `app.isPackaged ? join(process.resourcesPath, 'ffmpeg', bin)
 : join(app.getAppPath(), 'resources/ffmpeg', `${platform}-${arch}`, bin)`.
-- **License**: GPL builds executed as a separate process via CLI, never linked.
+- **License**: GPLv3 builds executed as a separate process via CLI, never linked.
   README "Third-party" section lists ffmpeg + GPL + link to its source. This is the
   common industry practice; a lawyer review is a Phase-1 selling item, not a blocker.
 - CI release matrix: each runner already builds its own OS, so `setup-ffmpeg.mjs`
