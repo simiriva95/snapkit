@@ -1,5 +1,6 @@
 import { app } from 'electron'
 import { spawn } from 'child_process'
+import { existsSync } from 'fs'
 import { rm } from 'fs/promises'
 import { join } from 'path'
 
@@ -46,6 +47,12 @@ export function parseTimeSec(line: string): number | null {
 
 export function runFfmpeg(run: FfmpegRun, bin: string = ffmpegPath()): Promise<void> {
   return new Promise((resolve, reject) => {
+    const output = run.args.at(-1)
+    // Overwriting an existing file (-y) is a legitimate caller choice, but a
+    // FAILED run must not destroy what was already there — only a partial file
+    // that this run itself created may be cleaned up.
+    const preexisting = output !== undefined && existsSync(output)
+
     const child = spawn(bin, ['-hide_banner', '-nostdin', '-y', ...run.args], {
       stdio: ['ignore', 'ignore', 'pipe'],
       windowsHide: true
@@ -69,18 +76,23 @@ export function runFfmpeg(run: FfmpegRun, bin: string = ffmpegPath()): Promise<v
       }
     })
 
-    const output = run.args.at(-1)
     const onAbort = (): void => {
       child.kill('SIGKILL')
     }
     run.signal?.addEventListener('abort', onAbort, { once: true })
     if (run.signal?.aborted) onAbort()
 
+    // A failed spawn emits 'error' AND then 'close', so both paths guard on this.
+    let settled = false
+
     const fail = (why: string): void => {
+      if (settled) return
+      settled = true
       // Best-effort cleanup: a locked/undeletable partial file must not mask the real error.
-      const cleanup = output
-        ? rm(output, { force: true }).catch(() => undefined)
-        : Promise.resolve()
+      const cleanup =
+        output !== undefined && !preexisting
+          ? rm(output, { force: true }).catch(() => undefined)
+          : Promise.resolve()
       void cleanup.then(() => reject(new Error(why)))
     }
 
@@ -92,6 +104,8 @@ export function runFfmpeg(run: FfmpegRun, bin: string = ffmpegPath()): Promise<v
       run.signal?.removeEventListener('abort', onAbort)
       if (run.signal?.aborted) return fail('ffmpeg cancelled')
       if (code !== 0) return fail(`ffmpeg exited with ${code}:\n${tail.join('\n')}`)
+      if (settled) return
+      settled = true
       run.onProgress?.(1)
       resolve()
     })

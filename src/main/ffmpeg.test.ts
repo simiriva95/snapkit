@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { existsSync, mkdtempSync } from 'fs'
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
@@ -51,10 +51,23 @@ describe.skipIf(!hasBinary)('runFfmpeg (real binary)', () => {
 
   it('rejects with the stderr tail and removes the output on failure', async () => {
     const out = join(tmp(), 'out.mp4')
+    // The exit code itself is ffmpeg's business (1 on 6.x, 254 on 9.x) — what
+    // this pins is that the code and the stderr tail reach the caller.
     await expect(runFfmpeg({ args: ['-i', '/definitely/missing.mp4', out] })).rejects.toThrow(
-      /ffmpeg exited with 1:[\s\S]*No such file/
+      /ffmpeg exited with \d+:[\s\S]*No such file/
     )
     expect(existsSync(out)).toBe(false)
+  })
+
+  it('leaves a PRE-EXISTING output untouched when ffmpeg fails', async () => {
+    const out = join(tmp(), 'precious.mp4')
+    const bytes = Buffer.from('not a video, but the user cares about it')
+    writeFileSync(out, bytes)
+    await expect(
+      runFfmpeg({ args: ['-i', '/definitely/missing.mp4', '-c', 'copy', out] })
+    ).rejects.toThrow(/ffmpeg exited with \d+:/)
+    expect(existsSync(out)).toBe(true)
+    expect(readFileSync(out).equals(bytes)).toBe(true)
   })
 
   it('kills the child and removes the output on abort', async () => {
