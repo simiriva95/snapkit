@@ -15,6 +15,7 @@ files:
 extraResources:
   - from: resources/ffmpeg/${os}-${arch}/
     to: ffmpeg/
+    filter: ['**/*', '!.sha256']
 
 # A missing extraResources source is only a WARNING in electron-builder, so
 # cross-platform packaging would silently ship an installer without ffmpeg.

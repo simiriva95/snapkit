@@ -10,7 +10,7 @@ export default async function beforePack(context) {
   const os = context.packager.platform.buildConfigurationKey // mac | win | linux
   const arch = Arch[context.arch] // x64 | arm64
   const bin = os === 'win' ? 'ffmpeg.exe' : 'ffmpeg'
-  const path = join(process.cwd(), 'resources', 'ffmpeg', `${os}-${arch}`, bin)
+  const path = join(context.packager.projectDir, 'resources', 'ffmpeg', `${os}-${arch}`, bin)
   if (!existsSync(path)) {
     throw new Error(
       `[before-pack] missing ${path} — run scripts/setup-ffmpeg.mjs on a ${os}-${arch} host`

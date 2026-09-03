@@ -105,7 +105,6 @@ async function main() {
   }
   chmodSync(dest, 0o755)
   rmSync(archive, { force: true })
-  writeFileSync(marker, `${build.sha256}\n`)
 
   // Sanity: an archive that extracted the wrong entry, or a truncated write,
   // would otherwise surface as a confusing runtime error in the video editor.
@@ -113,6 +112,7 @@ async function main() {
   if (probe.status !== 0) {
     throw new Error(`${dest} -version failed: ${probe.error?.message ?? `exit ${probe.status}`}`)
   }
+  writeFileSync(marker, `${build.sha256}\n`)
   console.log(`[setup-ffmpeg] ${probe.stdout.split('\n')[0]}`)
   console.log(
     `[setup-ffmpeg] ${(buf.length / 1e6).toFixed(0)}MB archive → resources/ffmpeg/${key}/${bin}`
