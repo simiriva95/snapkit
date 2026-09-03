@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
-import { join } from 'path'
+import { dirname, join } from 'path'
 
 // electron is not loadable under vitest; ffmpeg.ts only needs app.isPackaged/getAppPath.
 vi.mock('electron', () => ({
@@ -49,6 +49,8 @@ describe.skipIf(!hasBinary && !process.env['CI'])('runFfmpeg (real binary)', () 
     expect(existsSync(out)).toBe(true)
     expect(progress.at(-1)).toBe(1)
     expect(progress.every((r) => r >= 0 && r <= 1)).toBe(true)
+    const leftoverTemp = readdirSync(dirname(out)).filter((f) => f.includes('.snapkit-tmp-'))
+    expect(leftoverTemp).toEqual([])
   })
 
   it('rejects with the stderr tail and removes the output on failure', async () => {
@@ -70,6 +72,34 @@ describe.skipIf(!hasBinary && !process.env['CI'])('runFfmpeg (real binary)', () 
     ).rejects.toThrow(/ffmpeg exited with \d+:/)
     expect(existsSync(out)).toBe(true)
     expect(readFileSync(out).equals(bytes)).toBe(true)
+  })
+
+  it('leaves a PRE-EXISTING output untouched when a run is aborted mid-encode', async () => {
+    const out = join(tmp(), 'precious.mp4')
+    const bytes = Buffer.from('not a video, but the user cares about it')
+    writeFileSync(out, bytes)
+    const ac = new AbortController()
+    setTimeout(() => ac.abort(), 300)
+    // -re paces the synthetic source in real time so 60s really takes 60s.
+    await expect(
+      runFfmpeg({
+        args: [
+          '-re',
+          '-f',
+          'lavfi',
+          '-i',
+          'testsrc=duration=60:size=64x64:rate=10',
+          '-pix_fmt',
+          'yuv420p',
+          out
+        ],
+        signal: ac.signal
+      })
+    ).rejects.toThrow('ffmpeg cancelled')
+    expect(existsSync(out)).toBe(true)
+    expect(readFileSync(out).equals(bytes)).toBe(true)
+    const leftoverTemp = readdirSync(dirname(out)).filter((f) => f.includes('.snapkit-tmp-'))
+    expect(leftoverTemp).toEqual([])
   })
 
   it('kills the child and removes the output on abort', async () => {
