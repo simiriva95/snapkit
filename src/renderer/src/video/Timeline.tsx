@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { FRAME_SEC } from '@shared/videoPlan'
-import { cn } from '@renderer/lib/utils'
 import { buildFilmstrip } from './filmstrip'
 import { fmtTime } from './format'
 import { useVideoStore } from './store'
@@ -133,32 +132,37 @@ export function Timeline({
           className="pointer-events-none absolute inset-y-0 w-px bg-foreground"
           style={{ left: `${pct(playhead)}%` }}
         />
-        {/* handles */}
-        {(['in', 'out'] as const).map((which) => (
-          <div
-            key={which}
-            role="slider"
-            aria-label={which === 'in' ? 'Trim start' : 'Trim end'}
-            aria-valuenow={which === 'in' ? edits.inSec : edits.outSec}
-            aria-valuemin={0}
-            aria-valuemax={dur}
-            tabIndex={0}
-            onPointerDown={startDrag(which)}
-            onKeyDown={(e) => {
-              if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
-              e.preventDefault()
-              const step = (e.key === 'ArrowLeft' ? -1 : 1) * FRAME_SEC * (e.shiftKey ? 10 : 1)
-              patchEdits(
-                which === 'in' ? { inSec: edits.inSec + step } : { outSec: edits.outSec + step }
-              )
-            }}
-            className={cn(
-              'absolute inset-y-0 w-2.5 cursor-ew-resize rounded-sm bg-primary',
-              which === 'in' ? '-translate-x-full' : ''
-            )}
-            style={{ left: `${pct(which === 'in' ? edits.inSec : edits.outSec)}%` }}
-          />
-        ))}
+        {/* handles — the track is clipped, so both 10 px grips stay fully inside it:
+            the in-handle's left edge sits on the in-point, the out-handle's right
+            edge on the out-point. */}
+        {(['in', 'out'] as const).map((which) => {
+          const sec = which === 'in' ? edits.inSec : edits.outSec
+          return (
+            <div
+              key={which}
+              role="slider"
+              aria-label={which === 'in' ? 'Trim start' : 'Trim end'}
+              aria-valuenow={sec}
+              aria-valuemin={0}
+              aria-valuemax={dur}
+              aria-valuetext={fmtTime(sec)}
+              tabIndex={0}
+              onPointerDown={startDrag(which)}
+              onKeyDown={(e) => {
+                if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+                e.preventDefault()
+                const step = (e.key === 'ArrowLeft' ? -1 : 1) * FRAME_SEC * (e.shiftKey ? 10 : 1)
+                patchEdits(
+                  which === 'in' ? { inSec: edits.inSec + step } : { outSec: edits.outSec + step }
+                )
+              }}
+              className="absolute inset-y-0 w-2.5 cursor-ew-resize rounded-sm bg-primary"
+              style={{
+                left: `clamp(0px, calc(${pct(sec)}% - ${which === 'out' ? 10 : 0}px), calc(100% - 10px))`
+              }}
+            />
+          )
+        })}
       </div>
       <div className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
         <span>I {fmtTime(edits.inSec)}</span>
