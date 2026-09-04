@@ -36,6 +36,10 @@ describe('ringTrim', () => {
     expect(keep).toHaveLength(1)
     expect(drop).toHaveLength(0)
   })
+  it('keepMs 0 keeps nothing; an empty ring stays empty', () => {
+    expect(ringTrim([seg(1), seg(2)], 0)).toEqual({ keep: [], drop: [seg(1), seg(2)] })
+    expect(ringTrim([], 30_000)).toEqual({ keep: [], drop: [] })
+  })
   it('preserves order (oldest first)', () => {
     const { keep } = ringTrim([seg(1), seg(2), seg(3)], 10_000)
     expect(keep.map((s) => s.path)).toEqual(['seg-2.mp4', 'seg-3.mp4'])

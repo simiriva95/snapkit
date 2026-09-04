@@ -19,6 +19,8 @@ export function ringTrim(
   segments: Segment[],
   keepMs: number
 ): { keep: Segment[]; drop: Segment[] } {
+  // Nothing to keep → keep nothing (the buffer is off; callers never store segments then).
+  if (keepMs <= 0) return { keep: [], drop: segments }
   let covered = 0
   let cut = segments.length
   for (let i = segments.length - 1; i >= 0; i--) {
