@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   clipFileName,
-  clipStartSec,
+  clipSegments,
   concatListText,
   REPLAY_SECONDS,
   ringTrim,
@@ -46,10 +46,27 @@ describe('ringTrim', () => {
   })
 })
 
-describe('clipStartSec', () => {
-  it('seeks so that keepMs remain', () => expect(clipStartSec(45_000, 30_000)).toBe(15))
-  it('never goes negative while the buffer is filling', () =>
-    expect(clipStartSec(12_000, 30_000)).toBe(0))
+describe('clipSegments', () => {
+  it('takes the smallest suffix that covers keepMs — never seeks inside a segment', () => {
+    const all = [seg(1), seg(2), seg(3), seg(4), seg(5, 3_000)]
+    // 3 + 10 + 10 + 10 = 33 ≥ 30 → the last four
+    expect(clipSegments(all, 30_000).map((s) => s.path)).toEqual([
+      'seg-2.mp4',
+      'seg-3.mp4',
+      'seg-4.mp4',
+      'seg-5.mp4'
+    ])
+  })
+  it('returns everything while the buffer is still filling', () => {
+    expect(clipSegments([seg(1), seg(2, 4_000)], 30_000)).toHaveLength(2)
+  })
+  it('an exact fit needs no extra segment', () => {
+    expect(clipSegments([seg(1), seg(2), seg(3), seg(4)], 30_000).map((s) => s.path)).toEqual([
+      'seg-2.mp4',
+      'seg-3.mp4',
+      'seg-4.mp4'
+    ])
+  })
 })
 
 describe('concatListText', () => {

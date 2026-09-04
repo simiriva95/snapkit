@@ -32,8 +32,20 @@ export function ringTrim(
   return { keep: segments.slice(from), drop: segments.slice(0, from) }
 }
 
-export function clipStartSec(totalMs: number, keepMs: number): number {
-  return Math.max(0, (totalMs - keepMs) / 1000)
+/**
+ * Segments to concatenate for a clip: the smallest newest-last suffix covering
+ * keepMs (all of them while the buffer is still filling). No seek is applied:
+ * MediaRecorder segments only have a keyframe at their start, so cutting inside
+ * one would produce audio over black until the next boundary. A clip is
+ * therefore keepSec … keepSec + one segment long.
+ */
+export function clipSegments(segments: Segment[], keepMs: number): Segment[] {
+  let covered = 0
+  for (let i = segments.length - 1; i >= 0; i--) {
+    covered += segments[i].durationMs
+    if (covered >= keepMs) return segments.slice(i)
+  }
+  return segments.slice()
 }
 
 export function concatListText(paths: string[]): string {

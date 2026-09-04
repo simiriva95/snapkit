@@ -70,7 +70,10 @@ export function trimArgs(input: string, output: string, inSec: number, outSec: n
 
 /**
  * Join same-encoded segments listed in an ffmpeg concat file (`file 'x.mp4'` per line).
- * fromSec > 0 drops the head (output-side seek; keyframe-bound, fine for replay clips).
+ * fromSec > 0 drops the head with an output-side seek. Keyframe-bound: with MediaRecorder
+ * segments (one keyframe at the start of each) a seek inside a segment yields audio over
+ * black until the next boundary — the replay buffer therefore never passes fromSec and
+ * picks whole segments instead (replayPlan.clipSegments).
  */
 export function concatArgs(listFile: string, output: string, fromSec?: number): string[] {
   return [
