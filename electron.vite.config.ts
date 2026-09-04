@@ -44,6 +44,7 @@ export default defineConfig({
           ocr: resolve(__dirname, 'src/renderer/ocr.html'),
           controlbar: resolve(__dirname, 'src/renderer/controlbar.html'),
           recorder: resolve(__dirname, 'src/renderer/recorder.html'),
+          replay: resolve(__dirname, 'src/renderer/replay.html'),
           video: resolve(__dirname, 'src/renderer/video.html')
         }
       }
