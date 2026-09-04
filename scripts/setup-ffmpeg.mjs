@@ -3,8 +3,9 @@
 // post-processing (trim/concat/transcode/gif). Shipped via electron-builder
 // extraResources — only the host's binary, never all four.
 //
-// Sources: Martin Riedl (macOS, <https://ffmpeg.martin-riedl.de/>) and BtbN
-// (Windows/Linux, <https://github.com/BtbN/FFmpeg-Builds>), ffmpeg 9.0.1,
+// Downloaded from our pinned mirror <https://github.com/simiriva95/snapkit-ffmpeg>
+// (byte-identical upstream archives: Martin Riedl for macOS, BtbN for Windows/Linux —
+// upstream tags get pruned, the mirror does not), ffmpeg 9.0.1,
 // GPLv3 builds (`--enable-gpl --enable-version3`) with NO `--enable-nonfree`
 // component — so they are legally redistributable. Executed as a separate
 // process, never linked. The SHA-256 of each ARCHIVE is pinned below.
@@ -31,22 +32,22 @@ const root = dirname(fileURLToPath(new URL('.', import.meta.url)))
 
 const BUILDS = {
   'mac-arm64': {
-    url: 'https://ffmpeg.martin-riedl.de/download/macos/arm64/1787073674_9.0.1/ffmpeg.zip',
+    url: 'https://github.com/simiriva95/snapkit-ffmpeg/releases/download/9.0.1/ffmpeg-9.0.1-mac-arm64.zip',
     sha256: '8287a1b2229e05eb41859f073e18e6c52c60a778f2f5e6881070fe51b79407fe',
     entry: 'ffmpeg'
   },
   'mac-x64': {
-    url: 'https://ffmpeg.martin-riedl.de/download/macos/amd64/1787081194_9.0.1/ffmpeg.zip',
+    url: 'https://github.com/simiriva95/snapkit-ffmpeg/releases/download/9.0.1/ffmpeg-9.0.1-mac-x64.zip',
     sha256: '5bdead62ff504ab9b447cc72b212c4fb481e3f7de5877d427a51bee8136dda40',
     entry: 'ffmpeg'
   },
   'win-x64': {
-    url: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-02-13-13/ffmpeg-n9.0.1-11-ge47273f4d9-win64-gpl-9.0.zip',
+    url: 'https://github.com/simiriva95/snapkit-ffmpeg/releases/download/9.0.1/ffmpeg-9.0.1-win-x64.zip',
     sha256: '232c44b96c3e553c5e57311fad22eb5f8feaee7246ebc68310c9ea53bcca4a52',
     entry: 'ffmpeg-n9.0.1-11-ge47273f4d9-win64-gpl-9.0/bin/ffmpeg.exe'
   },
   'linux-x64': {
-    url: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-02-13-13/ffmpeg-n9.0.1-11-ge47273f4d9-linux64-gpl-9.0.tar.xz',
+    url: 'https://github.com/simiriva95/snapkit-ffmpeg/releases/download/9.0.1/ffmpeg-9.0.1-linux-x64.tar.xz',
     sha256: 'd48023b23ebce963c7ff2e68810dfd2cbf8dd6be9a2a7c17b3daef6d6c888507',
     entry: 'ffmpeg-n9.0.1-11-ge47273f4d9-linux64-gpl-9.0/bin/ffmpeg'
   }

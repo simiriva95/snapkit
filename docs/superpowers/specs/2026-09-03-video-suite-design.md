@@ -61,6 +61,9 @@ an _export_ format of the suite (better quality via ffmpeg palettes, no 30 s cap
   the script idempotent). Post-extract it runs `ffmpeg -version` as a sanity check.
 - Sources — ffmpeg **9.0.1**, **GPLv3** (`--enable-gpl --enable-version3`, no
   `--enable-nonfree`), pinned per URL in the script:
+  - All four archives are served from the pinned mirror
+    <https://github.com/simiriva95/snapkit-ffmpeg> (release `9.0.1`), because upstream
+    `autobuild-*` tags get pruned. Provenance and checksums live in that repo's README.
   - macOS arm64 / x64: [Martin Riedl](https://ffmpeg.martin-riedl.de/) static builds
     (66 MB / 95 MB extracted; 28 MB / 34 MB archives).
   - Windows x64: BtbN `ffmpeg-n9.0.1-…-win64-gpl-9.0` (145 MB extracted, 169 MB archive).

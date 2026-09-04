@@ -218,8 +218,9 @@ see [ROADMAP.md](ROADMAP.md) for the phased plan and what was deliberately left 
 
 - **ffmpeg 9.0.1** — static **GPLv3** builds (`--enable-gpl --enable-version3`, no
   `--enable-nonfree` component), fetched at build time by `scripts/setup-ffmpeg.mjs` with the
-  archive SHA-256 pinned. Upstreams: [Martin Riedl](https://ffmpeg.martin-riedl.de/) (macOS) and
-  [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) (Windows, Linux).
+  archive SHA-256 pinned, served from our mirror [snapkit-ffmpeg](https://github.com/simiriva95/snapkit-ffmpeg)
+  (byte-identical upstream archives — [Martin Riedl](https://ffmpeg.martin-riedl.de/) for macOS,
+  [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) for Windows/Linux — with provenance and checksums).
   Executed as a separate process for video trim/convert/compress — never linked into the app.
   Source and license: <https://ffmpeg.org/legal.html>.
 
