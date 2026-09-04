@@ -43,7 +43,7 @@ export function Timeline({
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
       const v = videoRef.current
-      const t = v?.currentTime ?? playhead
+      const t = v?.currentTime ?? useVideoStore.getState().playhead
       if (e.key === 'i' || e.key === 'I') patchEdits({ inSec: t })
       else if (e.key === 'o' || e.key === 'O') patchEdits({ outSec: t })
       else if (e.key === '[' || e.key === ']') {
@@ -59,7 +59,7 @@ export function Timeline({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [meta, edits, playhead, patchEdits, videoRef])
+  }, [meta, edits, patchEdits, videoRef])
 
   if (!file || !meta || !edits) return null
   const dur = meta.durationSec
@@ -144,6 +144,14 @@ export function Timeline({
             aria-valuemax={dur}
             tabIndex={0}
             onPointerDown={startDrag(which)}
+            onKeyDown={(e) => {
+              if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+              e.preventDefault()
+              const step = (e.key === 'ArrowLeft' ? -1 : 1) * FRAME_SEC * (e.shiftKey ? 10 : 1)
+              patchEdits(
+                which === 'in' ? { inSec: edits.inSec + step } : { outSec: edits.outSec + step }
+              )
+            }}
             className={cn(
               'absolute inset-y-0 w-2.5 cursor-ew-resize rounded-sm bg-primary',
               which === 'in' ? '-translate-x-full' : ''
