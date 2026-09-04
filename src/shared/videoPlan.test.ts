@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   canCopy,
+  containerFromName,
   defaultEdits,
   estimateBytes,
   isTrimmed,
@@ -195,4 +196,11 @@ describe('estimateBytes', () => {
     }
     expect(estimateBytes(e, meta)).toBe(Math.round(640 * 360 * 10 * 10 * 0.12))
   })
+})
+
+describe('containerFromName', () => {
+  it('mp4 (case-insensitive)', () => expect(containerFromName('a.MP4')).toBe('mp4'))
+  it('m4v is an mp4 container', () => expect(containerFromName('b.m4v')).toBe('mp4'))
+  it('webm', () => expect(containerFromName('c.webm')).toBe('webm'))
+  it('anything else is other', () => expect(containerFromName('d.mov')).toBe('other'))
 })

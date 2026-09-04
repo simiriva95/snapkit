@@ -30,6 +30,15 @@ export interface VideoMeta {
   sizeBytes: number
 }
 
+/** Source container from a file name or path; anything we cannot copy is 'other'. */
+export function containerFromName(name: string): VideoMeta['container'] {
+  const dot = name.lastIndexOf('.')
+  const ext = dot === -1 ? '' : name.slice(dot).toLowerCase()
+  if (ext === '.mp4' || ext === '.m4v') return 'mp4'
+  if (ext === '.webm') return 'webm'
+  return 'other'
+}
+
 /** The renderer does not know the source fps; one "frame" is 1/30 s. */
 export const FRAME_SEC = 1 / 30
 const TRIM_EPSILON = 0.01

@@ -8,7 +8,7 @@ import {
   type VideoExportResult,
   type VideoOpenPayload
 } from '@shared/ipc'
-import { planExport } from '@shared/videoPlan'
+import { containerFromName, planExport } from '@shared/videoPlan'
 import { ffmpegPath, runFfmpeg } from './ffmpeg'
 import { getPrefs } from './prefs'
 import { APP_URL } from './protocol'
@@ -22,10 +22,7 @@ const VIDEO_EXTENSIONS = ['mp4', 'm4v', 'webm', 'mov']
 let win: BrowserWindow | null = null
 let exportAbort: AbortController | null = null
 
-const containerOf = (path: string): VideoOpenPayload['container'] => {
-  const ext = extname(path).toLowerCase()
-  return ext === '.mp4' || ext === '.m4v' ? 'mp4' : ext === '.webm' ? 'webm' : 'other'
-}
+const containerOf = (path: string): VideoOpenPayload['container'] => containerFromName(path)
 
 /** Only the editor window may drive an export or hand us a path to open. */
 const fromEditor = (event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): boolean =>
