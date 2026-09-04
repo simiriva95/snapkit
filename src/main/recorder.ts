@@ -10,13 +10,14 @@ import {
   systemPreferences,
   type Display
 } from 'electron'
-import { writeFile } from 'fs/promises'
+import { rm, writeFile } from 'fs/promises'
 import os from 'os'
 import { join } from 'path'
 import { IpcChannels, type Rect, type RecordJob } from '@shared/ipc'
 import type { RecordFormat } from '@shared/recordPlan'
 import { getPrefs } from './prefs'
 import { createControlBar, sendControlStatus } from './controlbar'
+import { runFfmpeg } from './ffmpeg'
 import { APP_URL } from './protocol'
 import type { EditorHost } from './capture'
 
@@ -249,6 +250,28 @@ async function saveRecording(buffer: Buffer, ext: RecordFormat, host: EditorHost
     ? await dialog.showSaveDialog(win, options)
     : await dialog.showSaveDialog(options)
   if (canceled || !filePath) return
-  await writeFile(filePath, buffer)
+
+  // MediaRecorder writes fragmented mp4/WebM: no duration header, so players
+  // show 0:00 and cannot seek. A stream copy through ffmpeg rewrites the
+  // container properly (and moves the mp4 moov atom to the front).
+  const tmp = join(app.getPath('temp'), `snapkit-rec-${Date.now()}.${ext}`)
+  try {
+    await writeFile(tmp, buffer)
+    await runFfmpeg({
+      args: [
+        '-i',
+        tmp,
+        '-c',
+        'copy',
+        ...(ext === 'mp4' ? ['-movflags', '+faststart'] : []),
+        filePath
+      ]
+    })
+  } catch (err) {
+    console.warn('[recorder] ffmpeg remux failed, saving the raw recording instead:', err)
+    await writeFile(filePath, buffer)
+  } finally {
+    await rm(tmp, { force: true }).catch(() => undefined)
+  }
   shell.showItemInFolder(filePath)
 }
