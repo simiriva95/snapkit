@@ -90,13 +90,13 @@ export const BUNDLED_OCR_LANGUAGES = [
 /** Outcome of a prefs update — shortcut changes can fail to register. */
 export type PrefsSetResult = { ok: true; prefs: Prefs } | { ok: false; error: string; prefs: Prefs }
 
+const RESOLUTIONS: RecordResolution[] = ['native', 1440, 1080, 720]
+const FPS: RecordFps[] = [30, 60]
+
 /**
  * Fill gaps from older stores and migrate removed values. 0.4.x could store
  * recordFormat 'gif'; GIF is now an export of the video editor, not a recording format.
  */
-const RESOLUTIONS: RecordResolution[] = ['native', 1440, 1080, 720]
-const FPS: RecordFps[] = [30, 60]
-
 export function normalizePrefs(raw: Prefs): Prefs {
   const p: Prefs = { ...DEFAULT_PREFS, ...raw }
   if (p.recordFormat !== 'mp4' && p.recordFormat !== 'webm') p.recordFormat = 'mp4'

@@ -269,7 +269,15 @@ async function saveRecording(buffer: Buffer, ext: RecordFormat, host: EditorHost
     })
   } catch (err) {
     console.warn('[recorder] ffmpeg remux failed, saving the raw recording instead:', err)
-    await writeFile(filePath, buffer)
+    try {
+      await writeFile(filePath, buffer)
+    } catch (writeErr) {
+      new Notification({
+        title: 'Could not save recording',
+        body: writeErr instanceof Error ? writeErr.message : String(writeErr)
+      }).show()
+      return
+    }
   } finally {
     await rm(tmp, { force: true }).catch(() => undefined)
   }

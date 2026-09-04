@@ -106,10 +106,12 @@ async function record(job: RecordJob): Promise<void> {
     const systemTrack = display.getAudioTracks()[0]
     const micTrack = mic?.getAudioTracks()[0]
     let audioTrack: MediaStreamTrack | undefined
-    if (systemTrack || micTrack) {
+    if (systemTrack && micTrack) {
       // 48 kHz: what both Opus and AAC want, and what loopback capture delivers.
       audioCtx = new AudioContext({ sampleRate: 48000 })
       audioTrack = mergeAudio(audioCtx, systemTrack, micTrack)
+    } else {
+      audioTrack = systemTrack ?? micTrack
     }
     const stream = new MediaStream(audioTrack ? [videoTrack, audioTrack] : [videoTrack])
 
@@ -131,11 +133,14 @@ async function record(job: RecordJob): Promise<void> {
     }
     const done = new Promise<void>((resolve) => {
       recorder.onstop = () => resolve()
-      // An encoder error may never fire onstop. Resolve anyway and save the
-      // chunks collected so far; no chunks → main's empty-buffer path reports it.
+      // A fatal encoder error makes the recorder inactive and never fires onstop:
+      // end the session now and save the chunks collected so far (no chunks →
+      // main's empty-buffer path reports the failure).
       recorder.onerror = (e) => {
         console.error('[recorder] MediaRecorder error', e)
+        stopRequested = true
         resolve()
+        stopFn?.()
       }
     })
     recorder.start(1000)
@@ -144,7 +149,7 @@ async function record(job: RecordJob): Promise<void> {
       stopFn = resolve
       if (stopRequested) resolve()
     })
-    recorder.stop()
+    if (recorder.state !== 'inactive') recorder.stop()
     await done
 
     const blob = new Blob(chunks, { type: mime.mimeType })
@@ -205,10 +210,9 @@ async function cropToCanvas(
 /** One audio track out of up to two: pass-through for one source, mixed for two. */
 function mergeAudio(
   ctx: AudioContext,
-  system?: MediaStreamTrack,
-  mic?: MediaStreamTrack
-): MediaStreamTrack | undefined {
-  if (!system || !mic) return system ?? mic
+  system: MediaStreamTrack,
+  mic: MediaStreamTrack
+): MediaStreamTrack {
   const dest = ctx.createMediaStreamDestination()
   for (const t of [system, mic]) {
     const gain = ctx.createGain()
