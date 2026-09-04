@@ -107,8 +107,6 @@ export interface RecordJob {
   fps: RecordFps
   mic: boolean
   systemAudio: boolean
-  /** Hard stop after this many seconds. */
-  maxSeconds: number
 }
 
 /** One capturable window shown in the picker grid. */
@@ -224,8 +222,11 @@ export interface ControlApi {
 export interface RecorderApi {
   onStart: (cb: (job: RecordJob) => void) => () => void
   onStop: (cb: () => void) => () => void
-  /** Hand the encoded bytes back to main for saving. */
-  sendResult: (data: ArrayBuffer, ext: string) => void
+  /**
+   * Hand the encoded bytes back to main for saving. An empty buffer means the
+   * recording failed; `error` is then the reason to show the user.
+   */
+  sendResult: (data: ArrayBuffer, ext: RecordFormat, error?: string) => void
 }
 
 /** The API bridged into the selection overlay window. */

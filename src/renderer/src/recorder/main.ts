@@ -21,10 +21,14 @@ window.recorderApi.onStop(() => {
 })
 
 window.recorderApi.onStart((job) => {
-  void record(job).catch((err) => {
+  void record(job).catch((err: unknown) => {
     console.error('[recorder]', err)
-    // Empty result → main tears the session down instead of hanging.
-    window.recorderApi.sendResult(new ArrayBuffer(0), job.format)
+    // Empty result → main tears the session down and tells the user why.
+    window.recorderApi.sendResult(
+      new ArrayBuffer(0),
+      job.format,
+      err instanceof Error ? err.message : String(err)
+    )
   })
 })
 

@@ -11,8 +11,10 @@ import {
   type Display
 } from 'electron'
 import { writeFile } from 'fs/promises'
+import os from 'os'
 import { join } from 'path'
 import { IpcChannels, type Rect, type RecordJob } from '@shared/ipc'
+import type { RecordFormat } from '@shared/recordPlan'
 import { getPrefs } from './prefs'
 import { createControlBar, sendControlStatus } from './controlbar'
 import { APP_URL } from './protocol'
@@ -32,9 +34,19 @@ interface RecordSession {
   recorder: BrowserWindow
   control: BrowserWindow
   timer: NodeJS.Timeout
-  startedAt: number
-  ext: string
   stopping: boolean
+}
+
+/**
+ * Can we ask for `audio: 'loopback'` (system audio) at all? Only macOS 13+
+ * (Darwin 22) and Windows. On Linux and macOS ≤ 12 the request either fails or
+ * is ignored, so we silently record without system audio instead.
+ */
+export function systemAudioSupported(): boolean {
+  return (
+    process.platform === 'win32' ||
+    (process.platform === 'darwin' && Number(os.release().split('.')[0]) >= 22)
+  )
 }
 
 let current: RecordSession | null = null
@@ -45,15 +57,23 @@ let pendingSource: { displayId: number; sourceId?: string; audio: boolean } | nu
 export function setupDisplayMediaHandler(): void {
   electronSession.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
     const pending = pendingSource
+    // No pending job = a getDisplayMedia call we did not initiate: deny it.
+    if (!pending) return callback({})
     desktopCapturer
-      .getSources({ types: pending?.sourceId ? ['window', 'screen'] : ['screen'] })
+      // Thumbnails/icons are pure overhead here — we only need the source handle.
+      .getSources({
+        types: pending.sourceId ? ['window'] : ['screen'],
+        thumbnailSize: { width: 0, height: 0 },
+        fetchWindowIcons: false
+      })
       .then((sources) => {
-        const match = pending?.sourceId
+        const match = pending.sourceId
           ? sources.find((s) => s.id === pending.sourceId)
-          : (sources.find((s) => s.display_id === String(pending?.displayId)) ?? sources[0])
+          : sources.find((s) => s.display_id === String(pending.displayId))
+        // No match: deny rather than record a random screen.
         if (!match) return callback({})
         // 'loopback' = system audio. Works on macOS 13+ and Windows (V0 spike).
-        callback(pending?.audio ? { video: match, audio: 'loopback' } : { video: match })
+        callback(pending.audio ? { video: match, audio: 'loopback' } : { video: match })
       })
       .catch(() => callback({}))
   })
@@ -67,12 +87,24 @@ export function registerRecorderIpc(host: EditorHost): void {
     }
   })
 
-  ipcMain.on(IpcChannels.recordResult, (event, data: ArrayBuffer, ext: string) => {
-    if (!current || current.recorder.webContents.id !== event.sender.id) return
-    const buffer = Buffer.from(data)
-    teardown()
-    void saveRecording(buffer, ext, host)
-  })
+  ipcMain.on(
+    IpcChannels.recordResult,
+    (event, data: ArrayBuffer, ext: RecordFormat, error?: string) => {
+      if (!current || current.recorder.webContents.id !== event.sender.id) return
+      const buffer = Buffer.from(data)
+      teardown()
+      // Nothing was encoded (permission denied, no track, encoder error before
+      // the first chunk): tell the user instead of opening a save dialog for 0 bytes.
+      if (buffer.byteLength === 0) {
+        new Notification({
+          title: 'Recording failed',
+          body: error ?? 'No video data was produced.'
+        }).show()
+        return
+      }
+      void saveRecording(buffer, ext, host)
+    }
+  )
 }
 
 export function startRecording(target: RecordTarget): void {
@@ -96,10 +128,14 @@ async function begin(target: RecordTarget): Promise<void> {
   if (current) return
   const { display } = target
 
+  // Linux and macOS ≤ 12 have no loopback capture: those recordings are
+  // silently made without system audio rather than failing.
+  const systemAudio = prefs.recordSystemAudio && systemAudioSupported()
+
   pendingSource = {
     displayId: display.id,
     sourceId: target.source === 'window' ? target.sourceId : undefined,
-    audio: prefs.recordSystemAudio
+    audio: systemAudio
   }
 
   const recorder = new BrowserWindow({
@@ -108,7 +144,9 @@ async function begin(target: RecordTarget): Promise<void> {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // The window is hidden but drives the canvas RAF loop for area recordings.
+      backgroundThrottling: false
     }
   })
 
@@ -133,8 +171,7 @@ async function begin(target: RecordTarget): Promise<void> {
     resolution: prefs.recordResolution,
     fps: prefs.recordFps,
     mic,
-    systemAudio: prefs.recordSystemAudio,
-    maxSeconds: MAX_SECONDS
+    systemAudio
   }
   recorder.webContents.once('did-finish-load', () => {
     recorder.webContents.send(IpcChannels.recordStart, job)
@@ -161,17 +198,19 @@ async function begin(target: RecordTarget): Promise<void> {
   recorder.on('closed', onDied)
   control.on('closed', onDied)
 
-  current = { recorder, control, timer, startedAt, ext: prefs.recordFormat, stopping: false }
+  current = { recorder, control, timer, stopping: false }
 }
 
 function stopRecording(): void {
   if (!current || current.stopping) return
   current.stopping = true
+  const session = current
   // The recorder answers with recordResult; teardown happens there.
   current.recorder.webContents.send(IpcChannels.recordStop)
-  // Safety net: if the renderer never answers, kill the session.
+  // Safety net: if the renderer never answers, kill the session. Compare
+  // identity so a stale timer can never tear down a later recording.
   setTimeout(() => {
-    if (current?.stopping) teardown()
+    if (current === session && session.stopping) teardown()
   }, 15_000)
 }
 
@@ -191,7 +230,7 @@ function teardown(): void {
 
 const pad2 = (n: number): string => String(n).padStart(2, '0')
 
-async function saveRecording(buffer: Buffer, ext: string, host: EditorHost): Promise<void> {
+async function saveRecording(buffer: Buffer, ext: RecordFormat, host: EditorHost): Promise<void> {
   const d = new Date()
   const name = `Snapkit Recording ${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} at ${pad2(d.getHours())}.${pad2(d.getMinutes())}.${pad2(d.getSeconds())}.${ext}`
   const prefs = getPrefs()

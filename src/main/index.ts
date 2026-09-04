@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, Notification, session } from 'electron'
 import { join } from 'path'
 import { IpcChannels } from '@shared/ipc'
 import { createTray, updateTrayShortcuts } from './tray'
@@ -154,13 +154,23 @@ if (!gotLock) {
     const prefs = getPrefs()
     // Re-assert the login item: a reinstall or bundle move can drop it.
     applyLaunchAtLogin(prefs.launchAtLogin)
+    const failed: string[] = []
     for (const field of Object.keys(handlers) as ShortcutField[]) {
       if (!registerShortcut(field, prefs[field], handlers[field])) {
         console.warn(`[shortcuts] could not register ${prefs[field]} (already in use?)`)
+        failed.push(`${field}: ${prefs[field]}`)
       }
     }
+    // One notification for the whole batch — a silent shortcut looks like a bug.
+    if (failed.length > 0) {
+      new Notification({
+        title: 'Some shortcuts are unavailable',
+        body: `${failed.join('\n')}\nChange them in Preferences.`
+      }).show()
+    }
     registerPrefsIpc(
-      (field, accelerator) => registerShortcut(field, accelerator),
+      // Pass the handler: a re-registered shortcut with no handler is a dead key.
+      (field, accelerator) => registerShortcut(field, accelerator, handlers[field]),
       (updated) => {
         updateTrayShortcuts(updated)
         applyHistoryPrefs(updated.clipboardHistory)
