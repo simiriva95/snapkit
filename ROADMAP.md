@@ -66,6 +66,8 @@ Cloud features conflict with "never leaves your device" — resolve by **opt-in 
 - **Own-window filtering in the picker**: matches on window title "Snapkit" — brittle if
   the title ever changes; revisit with a native window-id check.
 - **Trial enforcement**: stub never blocks. Decision due at Phase 1.5.
+- **Stop recording needs a second entry point** (tray "Stop Recording" or the record shortcuts
+  toggling stop) — today only the control bar stops; V2 prerequisite.
 - **Control bar is visible in screen/window recordings** — Electron cannot exclude a window
   from ScreenCaptureKit/WGC capture; options: move the bar to another display when present,
   or a tray-only timer.

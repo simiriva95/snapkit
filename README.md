@@ -73,7 +73,7 @@ Snapkit runs OCR **locally**, finds the sensitive bits, and blurs them before yo
 **Preferences**
 
 - Shortcuts, dark/light/system theme, OCR languages (English, Italiano, Deutsch, Français,
-  Español — bundled), export folder & format, recording format, resolution, frame rate and audio, auto-redact after capture,
+  Español — bundled), export folder & format, recording format, resolution, frame rate and audio (system audio: macOS 13+, Windows), auto-redact after capture,
   start at system start (launches silently in the tray)
 
 ## 📦 Install
@@ -134,12 +134,15 @@ after that, everything is fully offline.
 
 ## 🚀 Usage
 
-| Action                                          | Default shortcut                     |
-| ----------------------------------------------- | ------------------------------------ |
-| Capture area                                    | `⌘⇧2` / `Ctrl+Shift+2`               |
-| Capture full screen                             | `⌘⇧1` / `Ctrl+Shift+1`               |
-| Capture window                                  | `⌘⇧3` / `Ctrl+Shift+3`               |
-| Scrolling capture / Record area, screen, window | tray menu, shortcuts or home buttons |
+| Action                 | Default shortcut                                           |
+| ---------------------- | ---------------------------------------------------------- |
+| Capture area           | `⌘⇧2` / `Ctrl+Shift+2`, tray or home button                |
+| Capture full screen    | `⌘⇧1` / `Ctrl+Shift+1`, tray or home button                |
+| Capture window         | `⌘⇧3` / `Ctrl+Shift+3`, tray or home button                |
+| Scrolling capture      | `⌘⇧6` / `Ctrl+Shift+6`, tray or home button                |
+| Record area            | `⌘⇧7` / `Ctrl+Shift+7`, tray or home button                |
+| Record screen / window | `⌘⇧9` / `⌘⇧0` (`Ctrl+Shift+9` / `Ctrl+Shift+0`), tray menu |
+| Clipboard history      | `⌘⇧V` / `Ctrl+Shift+V`, tray menu                          |
 
 In the editor: `V` select · `A` arrow · `L` line · `P` pen · `R` rectangle · `T` text ·
 `H` highlighter · `S` step marker · `B` blur · `O` lasso · `W` smart cut ·
