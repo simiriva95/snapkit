@@ -267,6 +267,16 @@ recorders trimmed by timestamps.`
 
 Not in V2: game detection, in-game overlay, per-app audio, multiple displays.
 
+**Landed (2026-09-04)**: the ring is trimmed by cumulative _duration_ (`ringTrim`), not by
+file count, so short flush segments never shrink the window; the hotkey first flushes the
+in-progress segment (`replayFlush` → segment with the flush id, 5 s timeout) so the clip
+includes the seconds since the last boundary; the renderer starts the next `MediaRecorder`
+before stopping the current one (no boundary frame loss); the display-media routing in
+`recorder.ts` is one-shot (`setPendingSource`) so recorder and replay windows never share
+state; the buffer records system audio only on macOS (a background `getUserMedia` would
+pop the mic prompt at login); the "stop entry point" prerequisite landed as a tray
+"Stop Recording" item plus record shortcuts that toggle stop.
+
 ### V3 — Video suite (L)
 
 **Window**: `video.html` → `src/renderer/src/video/` (React, Zustand store, existing

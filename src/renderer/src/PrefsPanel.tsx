@@ -296,6 +296,63 @@ function PrefsPanel({ onBack }: { onBack: () => void }): React.JSX.Element {
             />
           </Row>
 
+          <Row label="Replay buffer">
+            <Segmented
+              ariaLabel="Replay buffer length"
+              value={prefs.replayBuffer}
+              options={[
+                { value: 0, label: 'Off' },
+                { value: 30, label: '30 s' },
+                { value: 60, label: '1 m' },
+                { value: 120, label: '2 m' },
+                { value: 300, label: '5 m' }
+              ]}
+              onChange={(replayBuffer) => patch({ replayBuffer })}
+            />
+          </Row>
+          {prefs.replayBuffer > 0 && (
+            <p className="pb-3 text-xs text-muted-foreground">
+              Records the screen under the cursor continuously. Uses up to ≈
+              {Math.round((prefs.replayBuffer + 10) * 2.5)} MB of temporary disk at 1080p60. On
+              macOS the buffer records system audio only (the microphone would prompt at login).
+            </p>
+          )}
+
+          <Row label="Save replay">
+            <ShortcutRecorder
+              label="Save replay shortcut"
+              value={prefs.replayShortcut}
+              onRecord={(acc) => patch({ replayShortcut: acc })}
+            />
+          </Row>
+
+          <Row label="Clips folder">
+            <span
+              className="max-w-44 truncate text-xs text-muted-foreground"
+              title={prefs.clipsDir ?? 'Movies/Snapkit Clips'}
+            >
+              {prefs.clipsDir ?? 'Movies/Snapkit Clips'}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                void window.api.pickExportDir().then((dir) => dir && patch({ clipsDir: dir }))
+              }
+            >
+              <Folder />
+              Choose…
+            </Button>
+          </Row>
+
+          <Row label="Open clips in the editor">
+            <Toggle
+              ariaLabel="Open clips in the editor"
+              checked={prefs.clipOpenInEditor}
+              onChange={(clipOpenInEditor) => patch({ clipOpenInEditor })}
+            />
+          </Row>
+
           <Row label="Styled copy backdrop">
             <Segmented
               ariaLabel="Styled copy backdrop"

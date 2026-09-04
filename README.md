@@ -65,6 +65,13 @@ Snapkit runs OCR **locally**, finds the sensitive bits, and blurs them before yo
 - Resolution presets (native / 1440p / 1080p / 720p), 30 or 60 fps
 - System audio (macOS 13+, Windows) and/or microphone
 
+**Replay**
+
+- Keep the last 30 s – 5 min of your screen in a background buffer; `⌘⇧8` saves it as a
+  clip in ~2 s — for games, demos, and the bug you only notice after it happened.
+- Clips land in `Movies/Snapkit Clips` (configurable); the buffer uses up to ≈ 750 MB of
+  temporary disk at 1080p60 and restarts itself after sleep or display changes.
+
 **Edit**
 
 - Trim, resize (1080p/720p/480p), compress (quality or target size), convert to
@@ -140,15 +147,17 @@ after that, everything is fully offline.
 
 ## 🚀 Usage
 
-| Action                 | Default shortcut                                           |
-| ---------------------- | ---------------------------------------------------------- |
-| Capture area           | `⌘⇧2` / `Ctrl+Shift+2`, tray or home button                |
-| Capture full screen    | `⌘⇧1` / `Ctrl+Shift+1`, tray or home button                |
-| Capture window         | `⌘⇧3` / `Ctrl+Shift+3`, tray or home button                |
-| Scrolling capture      | `⌘⇧6` / `Ctrl+Shift+6`, tray or home button                |
-| Record area            | `⌘⇧7` / `Ctrl+Shift+7`, tray or home button                |
-| Record screen / window | `⌘⇧9` / `⌘⇧0` (`Ctrl+Shift+9` / `Ctrl+Shift+0`), tray menu |
-| Clipboard history      | `⌘⇧V` / `Ctrl+Shift+V`, tray menu                          |
+| Action                 | Default shortcut                                             |
+| ---------------------- | ------------------------------------------------------------ |
+| Capture area           | `⌘⇧2` / `Ctrl+Shift+2`, tray or home button                  |
+| Capture full screen    | `⌘⇧1` / `Ctrl+Shift+1`, tray or home button                  |
+| Capture window         | `⌘⇧3` / `Ctrl+Shift+3`, tray or home button                  |
+| Scrolling capture      | `⌘⇧6` / `Ctrl+Shift+6`, tray or home button                  |
+| Record area            | `⌘⇧7` / `Ctrl+Shift+7`, tray or home button                  |
+| Record screen / window | `⌘⇧9` / `⌘⇧0` (`Ctrl+Shift+9` / `Ctrl+Shift+0`), tray menu   |
+| Stop recording         | press the record shortcut again, control bar, or tray menu   |
+| Save replay            | `⌘⇧8` / `Ctrl+Shift+8`, tray menu (buffer on in Preferences) |
+| Clipboard history      | `⌘⇧V` / `Ctrl+Shift+V`, tray menu                            |
 
 In the editor: `V` select · `A` arrow · `L` line · `P` pen · `R` rectangle · `T` text ·
 `H` highlighter · `S` step marker · `B` blur · `O` lasso · `W` smart cut ·
