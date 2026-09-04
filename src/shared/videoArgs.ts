@@ -49,7 +49,12 @@ export function videoKbpsForTarget(targetMB: number, durationSec: number, mute: 
   return Math.max(MIN_VIDEO_KBPS, Math.round(totalKbps - (mute ? 0 : AUDIO_KBPS)))
 }
 
-/** Lossless, instant cut. ponytail: cuts land on keyframes; use transcodeArgs for frame accuracy. */
+/**
+ * Lossless, instant cut. ponytail: -ss seeks to the PREVIOUS keyframe, so with long GOPs
+ * (MediaRecorder output often has 8 s+ between keyframes) the in-point can move back by
+ * seconds — in the worst case to 0. Use transcodeArgs with inSec/outSec when the exact
+ * in-point matters; keep this for "fast trim" only.
+ */
 export function trimArgs(input: string, output: string, inSec: number, outSec: number): string[] {
   return [
     ...range(inSec, outSec),

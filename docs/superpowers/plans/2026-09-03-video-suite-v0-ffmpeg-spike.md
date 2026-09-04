@@ -2,6 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status: executed 2026-09-03.** Superseded in part by the final review: the ffmpeg sources
+> below (`eugeneware/ffmpeg-static b6.1.1`, ffmpeg 6.0) turned out to be `--enable-nonfree` on
+> macOS and were replaced by GPLv3 9.0.1 builds (Martin Riedl for macOS, BtbN for Windows/Linux);
+> `runFfmpeg` writes to a temp file and renames on success; `videoKbpsForTarget` uses 8000 kbit/MB.
+> The spec (`docs/superpowers/specs/2026-09-03-video-suite-design.md`) is authoritative.
+
 **Goal:** Land the bundled-ffmpeg plumbing (download script, packaging, typed wrapper, pure arg builders) and verify the four capture assumptions from the spec on Electron 43, recording the results in the spec.
 
 **Architecture:** A static ffmpeg binary is fetched per host platform at setup time into `resources/ffmpeg/<os>-<arch>/`, shipped via electron-builder `extraResources`, and spawned from the main process through one wrapper (`src/main/ffmpeg.ts`). Command lines are produced by pure, unit-tested builders in `src/shared/videoArgs.ts`. A throwaway spike window (dev-only, env-gated) exercises `MediaRecorder` mp4, system-audio loopback and resolution constraints; it is deleted at the end of V0.

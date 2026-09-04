@@ -70,22 +70,26 @@ export function runFfmpeg(run: FfmpegRun, bin: string = ffmpegPath()): Promise<v
       windowsHide: true
     })
 
+    // Last diagnostic lines for the error message. Progress lines are not kept:
+    // a mid-encode failure would otherwise bury the real error under 19 `time=` lines.
     const tail: string[] = []
+    const consume = (line: string): void => {
+      if (!line) return
+      const t = parseTimeSec(line)
+      if (t !== null) {
+        if (run.durationSec && run.onProgress) run.onProgress(Math.min(1, t / run.durationSec))
+        return
+      }
+      tail.push(line)
+      if (tail.length > TAIL_LINES) tail.shift()
+    }
     let pending = ''
     child.stderr.setEncoding('utf8')
     child.stderr.on('data', (chunk: string) => {
       // Progress lines end with \r, everything else with \n.
       const lines = (pending + chunk).split(/[\r\n]+/)
       pending = lines.pop() ?? ''
-      for (const line of lines) {
-        if (!line) continue
-        tail.push(line)
-        if (tail.length > TAIL_LINES) tail.shift()
-        const t = parseTimeSec(line)
-        if (t !== null && run.durationSec && run.onProgress) {
-          run.onProgress(Math.min(1, t / run.durationSec))
-        }
-      }
+      lines.forEach(consume)
     })
 
     const onAbort = (): void => {
@@ -110,26 +114,31 @@ export function runFfmpeg(run: FfmpegRun, bin: string = ffmpegPath()): Promise<v
       run.signal?.removeEventListener('abort', onAbort)
       fail(`ffmpeg failed to start: ${err.message}`)
     })
+    // Success: report 100% and resolve. A throwing onProgress is the caller's bug
+    // and must not be reported as an ffmpeg/rename failure.
+    const succeed = (): void => {
+      try {
+        run.onProgress?.(1)
+      } catch (err) {
+        console.warn('[ffmpeg] onProgress threw:', err)
+      }
+      resolve()
+    }
+
     child.on('close', (code) => {
       run.signal?.removeEventListener('abort', onAbort)
+      consume(pending) // a final line without a trailing newline
+      pending = ''
       if (run.signal?.aborted) return fail('ffmpeg cancelled')
       if (code !== 0) return fail(`ffmpeg exited with ${code}:\n${tail.join('\n')}`)
       if (settled) return
       settled = true
-      if (tmp === undefined || output === undefined) {
-        run.onProgress?.(1)
-        return resolve()
-      }
-      rename(tmp, output)
-        .then(() => {
-          run.onProgress?.(1)
-          resolve()
-        })
-        .catch((err: Error) => {
-          void rm(tmp, { force: true })
-            .catch(() => undefined)
-            .then(() => reject(new Error(`ffmpeg output rename failed: ${err.message}`)))
-        })
+      if (tmp === undefined || output === undefined) return succeed()
+      rename(tmp, output).then(succeed, (err: Error) => {
+        void rm(tmp, { force: true })
+          .catch(() => undefined)
+          .then(() => reject(new Error(`ffmpeg output rename failed: ${err.message}`)))
+      })
     })
   })
 }
