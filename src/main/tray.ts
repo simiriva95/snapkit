@@ -1,7 +1,8 @@
-import { Tray, Menu, nativeImage } from 'electron'
+import { Tray, Menu, nativeImage, type NativeImage } from 'electron'
 import type { Prefs } from '@shared/prefs'
-// electron-vite copies this next to the bundle and rewrites the path (?asset).
+// electron-vite copies these next to the bundle and rewrites the paths (?asset).
 import trayIconPath from '../../resources/tray-iconTemplate.png?asset'
+import trayIconRecPath from '../../resources/tray-icon-rec.png?asset'
 
 export interface TrayActions {
   show: () => void
@@ -12,12 +13,20 @@ export interface TrayActions {
   recordArea: () => void
   recordScreen: () => void
   recordWindow: () => void
+  stopRecording: () => void
+  saveReplay: () => void
   editVideo: () => void
   clipboardHistory: () => void
   quit: () => void
 }
 
-type TrayShortcuts = Pick<
+/** What the tray reflects: a running recording or replay buffer shows the red-dot icon. */
+export interface TrayState {
+  recording: boolean
+  replayRunning: boolean
+}
+
+type TrayPrefs = Pick<
   Prefs,
   | 'captureShortcut'
   | 'fullscreenShortcut'
@@ -26,51 +35,63 @@ type TrayShortcuts = Pick<
   | 'recordShortcut'
   | 'recordScreenShortcut'
   | 'recordWindowShortcut'
+  | 'replayShortcut'
+  | 'replayBuffer'
   | 'historyShortcut'
 >
 
-// Keep a module-level ref so the tray isn't garbage-collected.
+// Keep module-level refs so the tray isn't garbage-collected.
 let tray: Tray | null = null
 let actionsRef: TrayActions | null = null
+let prefsRef: TrayPrefs | null = null
+let stateRef: TrayState = { recording: false, replayRunning: false }
+let idleIcon: NativeImage | null = null
+let recIcon: NativeImage | null = null
 
-function buildMenu(shortcuts: TrayShortcuts): Menu {
+function buildMenu(prefs: TrayPrefs, state: TrayState): Menu {
   const actions = actionsRef
   if (!actions) throw new Error('tray menu built before createTray')
   return Menu.buildFromTemplate([
     // Accelerators are display hints only — real registration is in shortcuts.ts.
-    { label: 'Capture Area', accelerator: shortcuts.captureShortcut, click: actions.captureArea },
+    { label: 'Capture Area', accelerator: prefs.captureShortcut, click: actions.captureArea },
     {
       label: 'Capture Full Screen',
-      accelerator: shortcuts.fullscreenShortcut,
+      accelerator: prefs.fullscreenShortcut,
       click: actions.captureFullscreen
     },
-    {
-      label: 'Capture Window',
-      accelerator: shortcuts.windowShortcut,
-      click: actions.captureWindow
-    },
+    { label: 'Capture Window', accelerator: prefs.windowShortcut, click: actions.captureWindow },
     {
       label: 'Scrolling Capture',
-      accelerator: shortcuts.scrollingShortcut,
+      accelerator: prefs.scrollingShortcut,
       click: actions.captureScrolling
     },
     { type: 'separator' },
-    { label: 'Record Area…', accelerator: shortcuts.recordShortcut, click: actions.recordArea },
+    { label: 'Record Area…', accelerator: prefs.recordShortcut, click: actions.recordArea },
     {
       label: 'Record Screen',
-      accelerator: shortcuts.recordScreenShortcut,
+      accelerator: prefs.recordScreenShortcut,
       click: actions.recordScreen
     },
     {
       label: 'Record Window…',
-      accelerator: shortcuts.recordWindowShortcut,
+      accelerator: prefs.recordWindowShortcut,
       click: actions.recordWindow
+    },
+    { label: 'Stop Recording', enabled: state.recording, click: actions.stopRecording },
+    {
+      label:
+        prefs.replayBuffer > 0
+          ? `Save Replay (${prefs.replayBuffer} s)`
+          : 'Save Replay (buffer off)',
+      accelerator: prefs.replayShortcut,
+      enabled: state.replayRunning,
+      click: actions.saveReplay
     },
     { label: 'Edit Video…', click: actions.editVideo },
     { type: 'separator' },
     {
       label: 'Clipboard History',
-      accelerator: shortcuts.historyShortcut,
+      accelerator: prefs.historyShortcut,
       click: actions.clipboardHistory
     },
     { type: 'separator' },
@@ -80,22 +101,40 @@ function buildMenu(shortcuts: TrayShortcuts): Menu {
   ])
 }
 
-export function createTray(actions: TrayActions, shortcuts: TrayShortcuts): Tray {
-  actionsRef = actions
-  const icon = nativeImage.createFromPath(trayIconPath)
-  // macOS: a template image auto-adapts to light/dark menu bars.
-  if (process.platform === 'darwin') icon.setTemplateImage(true)
+function refresh(): void {
+  if (!tray || !prefsRef) return
+  tray.setContextMenu(buildMenu(prefsRef, stateRef))
+  const busy = stateRef.recording || stateRef.replayRunning
+  const icon = busy ? recIcon : idleIcon
+  if (icon) tray.setImage(icon)
+}
 
-  tray = new Tray(icon)
+export function createTray(actions: TrayActions, prefs: TrayPrefs): Tray {
+  actionsRef = actions
+  prefsRef = prefs
+  idleIcon = nativeImage.createFromPath(trayIconPath)
+  // macOS: a template image auto-adapts to light/dark menu bars. The recording
+  // variant is full-colour (grey glyph + red dot) and must stay non-template.
+  if (process.platform === 'darwin') idleIcon.setTemplateImage(true)
+  recIcon = nativeImage.createFromPath(trayIconRecPath)
+
+  tray = new Tray(idleIcon)
   tray.setToolTip('Snapkit')
-  tray.setContextMenu(buildMenu(shortcuts))
+  tray.setContextMenu(buildMenu(prefs, stateRef))
   // Left-click (or click on non-macOS) opens the window.
   tray.on('click', actions.show)
 
   return tray
 }
 
-/** Reflect shortcut changes in the tray menu hints. */
-export function updateTrayShortcuts(shortcuts: TrayShortcuts): void {
-  tray?.setContextMenu(buildMenu(shortcuts))
+/** Reflect shortcut / replay-length changes in the tray menu. */
+export function updateTrayShortcuts(prefs: TrayPrefs): void {
+  prefsRef = prefs
+  refresh()
+}
+
+/** Reflect recording / replay state: menu enablement and the icon. */
+export function updateTrayState(patch: Partial<TrayState>): void {
+  stateRef = { ...stateRef, ...patch }
+  refresh()
 }

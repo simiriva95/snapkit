@@ -49,6 +49,46 @@ function render(size) {
   return px
 }
 
+/** Recording variant: grey glyph + red dot, full-colour (macOS must NOT treat it as a template). */
+function renderRec(size) {
+  const px = render(size) // alpha mask in channel 3, RGB 0
+  for (let i = 0; i < size * size; i++) {
+    if (px[i * 4 + 3] > 0) {
+      px[i * 4] = 0x8e
+      px[i * 4 + 1] = 0x8e
+      px[i * 4 + 2] = 0x93
+    }
+  }
+  // Red dot, supersampled, alpha-blended over whatever is there.
+  const SS = 8
+  const cx = 0.8
+  const cy = 0.8
+  const R = 0.17
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let acc = 0
+      for (let sy = 0; sy < SS; sy++) {
+        for (let sx = 0; sx < SS; sx++) {
+          const u = (x + (sx + 0.5) / SS) / size
+          const v = (y + (sy + 0.5) / SS) / size
+          if (Math.hypot(u - cx, v - cy) <= R) acc++
+        }
+      }
+      const a = acc / (SS * SS)
+      if (a === 0) continue
+      const o = (y * size + x) * 4
+      const prevA = px[o + 3] / 255
+      const outA = a + prevA * (1 - a)
+      const mix = (c, prev) => Math.round((c * a + prev * prevA * (1 - a)) / (outA || 1))
+      px[o] = mix(0xff, px[o])
+      px[o + 1] = mix(0x3b, px[o + 1])
+      px[o + 2] = mix(0x30, px[o + 2])
+      px[o + 3] = Math.round(outA * 255)
+    }
+  }
+  return px
+}
+
 const crcTable = (() => {
   const t = new Array(256)
   for (let n = 0; n < 256; n++) {
@@ -98,4 +138,6 @@ const outDir = fileURLToPath(new URL('../resources', import.meta.url))
 mkdirSync(outDir, { recursive: true })
 writeFileSync(`${outDir}/tray-iconTemplate.png`, encodePng(render(16), 16))
 writeFileSync(`${outDir}/tray-iconTemplate@2x.png`, encodePng(render(32), 32))
-console.log('wrote tray-iconTemplate.png (16) + @2x (32)')
+writeFileSync(`${outDir}/tray-icon-rec.png`, encodePng(renderRec(16), 16))
+writeFileSync(`${outDir}/tray-icon-rec@2x.png`, encodePng(renderRec(32), 32))
+console.log('wrote tray-iconTemplate.png (16) + @2x (32), tray-icon-rec.png (16) + @2x (32)')

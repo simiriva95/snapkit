@@ -1,7 +1,7 @@
 import { app, shell, BrowserWindow, ipcMain, Notification, session } from 'electron'
 import { join } from 'path'
 import { IpcChannels, type CaptureMode } from '@shared/ipc'
-import { createTray, updateTrayShortcuts } from './tray'
+import { createTray, updateTrayShortcuts, updateTrayState } from './tray'
 import { initCapture, startCapture, type EditorHost } from './capture'
 import { registerExportIpc } from './export'
 import { getPrefs, registerPrefsIpc, type ShortcutField } from './prefs'
@@ -9,11 +9,18 @@ import { registerLicenseIpc } from './license'
 import { APP_URL, registerAppScheme, serveApp } from './protocol'
 import {
   isRecording,
+  onRecordingStateChange,
   registerRecorderIpc,
   setupDisplayMediaHandler,
   stopCurrentRecording
 } from './recorder'
-import { applyReplayPrefs, initReplay, saveReplay, sweepReplayTemp } from './replay'
+import {
+  applyReplayPrefs,
+  initReplay,
+  onReplayStateChange,
+  saveReplay,
+  sweepReplayTemp
+} from './replay'
 import { initVideo, pickAndOpenVideo } from './video'
 import { registerShortcut, unregisterShortcuts } from './shortcuts'
 import { applyLaunchAtLogin, launchedAtLogin } from './loginItem'
@@ -208,12 +215,16 @@ if (!gotLock) {
         recordArea: handlers.recordShortcut,
         recordScreen: handlers.recordScreenShortcut,
         recordWindow: handlers.recordWindowShortcut,
+        stopRecording: () => stopCurrentRecording(),
+        saveReplay: () => saveReplay(),
         editVideo: () => void pickAndOpenVideo(),
         clipboardHistory: () => openHistoryPanel(),
         quit: () => app.quit()
       },
       prefs
     )
+    onRecordingStateChange((recording) => updateTrayState({ recording }))
+    onReplayStateChange((replayRunning) => updateTrayState({ replayRunning }))
 
     app.on('activate', () => {
       // macOS: re-show or recreate the window when the dock icon is clicked.
