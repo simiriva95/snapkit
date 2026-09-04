@@ -9,7 +9,11 @@ import { cn } from '@renderer/lib/utils'
 import { dragRegion, noDrag } from '@renderer/lib/titlebar'
 import { STYLED_TEMPLATES } from '@renderer/editor/exporter'
 import { BUNDLED_OCR_LANGUAGES, type Prefs } from '@shared/prefs'
+import { videoBitrate } from '@shared/recordPlan'
 import type { LicenseStatus } from '@shared/license'
+
+const isMac = navigator.platform.startsWith('Mac')
+const videosFolder = isMac ? 'Movies' : 'Videos'
 
 function Row({ label, children }: { label: string; children: React.ReactNode }): React.JSX.Element {
   return (
@@ -312,9 +316,16 @@ function PrefsPanel({ onBack }: { onBack: () => void }): React.JSX.Element {
           </Row>
           {prefs.replayBuffer > 0 && (
             <p className="pb-3 text-xs text-muted-foreground">
-              Records the screen under the cursor continuously. Uses up to ≈
-              {Math.round((prefs.replayBuffer + 10) * 2.5)} MB of temporary disk at 1080p60. On
-              macOS the buffer records system audio only (the microphone would prompt at login).
+              Records the screen under the cursor continuously, using the recording presets above.
+              Temporary disk: up to ≈
+              {Math.round(
+                ((prefs.replayBuffer + 20) *
+                  videoBitrate(prefs.recordResolution, prefs.recordFps)) /
+                  8e6
+              )}{' '}
+              MB.
+              {isMac &&
+                ' The microphone is not mixed into the buffer on macOS (it would prompt at login).'}
             </p>
           )}
 
@@ -329,9 +340,9 @@ function PrefsPanel({ onBack }: { onBack: () => void }): React.JSX.Element {
           <Row label="Clips folder">
             <span
               className="max-w-44 truncate text-xs text-muted-foreground"
-              title={prefs.clipsDir ?? 'Movies/Snapkit Clips'}
+              title={prefs.clipsDir ?? `${videosFolder}/Snapkit Clips`}
             >
-              {prefs.clipsDir ?? 'Movies/Snapkit Clips'}
+              {prefs.clipsDir ?? `${videosFolder}/Snapkit Clips`}
             </span>
             <Button
               variant="outline"

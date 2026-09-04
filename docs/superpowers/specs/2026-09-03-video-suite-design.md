@@ -255,9 +255,10 @@ recorders trimmed by timestamps.`
 - Tray icon swaps to a variant with a red dot while the buffer runs (new asset from
   `make-tray-icon.mjs`). Tray menu item "Save Replay (N s)" mirrors the hotkey.
 - Hotkey → main: `flash` (existing) + toast "Saving clip…", writes a concat list of
-  the ring files (ordered), `runFfmpeg(concatArgs(list, out, totalSec - keepSec))` — main knows each
-  segment's duration, so it seeks forward instead of relying on `-sseof` (unreliable
-  with the concat demuxer). Output name
+  the newest whole segments covering `keepSec` (`clipSegments`), `runFfmpeg(concatArgs(list, out))`
+  with **no seek**: MediaRecorder segments carry one keyframe each, so seeking inside a
+  segment yields audio over black until the next boundary (measured in review). A clip is
+  therefore `keepSec … keepSec + 10 s` long. Output name
   `Snapkit Clip YYYY-MM-DD at HH.MM.SS.mp4` in `clipsDir`. Then toast "Clip saved"
   (click → `showItemInFolder`), or open in the suite if `clipOpenInEditor`.
 - Sleep/wake, display disconnect, or renderer crash → main restarts the buffer
@@ -272,8 +273,8 @@ file count, so short flush segments never shrink the window; the hotkey first fl
 in-progress segment (`replayFlush` → segment with the flush id, 5 s timeout) so the clip
 includes the seconds since the last boundary; the renderer starts the next `MediaRecorder`
 before stopping the current one (no boundary frame loss); the display-media routing in
-`recorder.ts` is one-shot (`setPendingSource`) so recorder and replay windows never share
-state; the buffer records system audio only on macOS (a background `getUserMedia` would
+`recorder.ts` is keyed by the requesting window's `webContents.id` (`setPendingSource`) and
+consumed one-shot, so recorder and replay windows can never swap sources; the buffer records system audio only on macOS (a background `getUserMedia` would
 pop the mic prompt at login); the "stop entry point" prerequisite landed as a tray
 "Stop Recording" item plus record shortcuts that toggle stop.
 

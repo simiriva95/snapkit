@@ -69,8 +69,9 @@ Snapkit runs OCR **locally**, finds the sensitive bits, and blurs them before yo
 
 - Keep the last 30 s – 5 min of your screen in a background buffer; `⌘⇧8` saves it as a
   clip in ~2 s — for games, demos, and the bug you only notice after it happened.
-- Clips land in `Movies/Snapkit Clips` (configurable); the buffer uses up to ≈ 750 MB of
-  temporary disk at 1080p60 and restarts itself after sleep or display changes.
+- Clips land in `Movies/Snapkit Clips` (`Videos/…` on Windows/Linux, configurable). The buffer
+  follows the recording presets: at 1080p60 (12 Mbps) five minutes cost ≈ 480 MB of temporary
+  disk, at native 60 fps ≈ 1 GB. It restarts itself after sleep or display changes.
 
 **Edit**
 
