@@ -1,13 +1,19 @@
 import { app, shell, BrowserWindow, ipcMain, Notification, session } from 'electron'
 import { join } from 'path'
-import { IpcChannels } from '@shared/ipc'
+import { IpcChannels, type CaptureMode } from '@shared/ipc'
 import { createTray, updateTrayShortcuts } from './tray'
 import { initCapture, startCapture, type EditorHost } from './capture'
 import { registerExportIpc } from './export'
 import { getPrefs, registerPrefsIpc, type ShortcutField } from './prefs'
 import { registerLicenseIpc } from './license'
 import { APP_URL, registerAppScheme, serveApp } from './protocol'
-import { registerRecorderIpc, setupDisplayMediaHandler } from './recorder'
+import {
+  isRecording,
+  registerRecorderIpc,
+  setupDisplayMediaHandler,
+  stopCurrentRecording
+} from './recorder'
+import { applyReplayPrefs, initReplay, saveReplay, sweepReplayTemp } from './replay'
 import { initVideo, pickAndOpenVideo } from './video'
 import { registerShortcut, unregisterShortcuts } from './shortcuts'
 import { applyLaunchAtLogin, launchedAtLogin } from './loginItem'
@@ -139,19 +145,25 @@ if (!gotLock) {
     registerRecorderIpc()
     initVideo()
     setupDisplayMediaHandler()
+    void sweepReplayTemp().then(() => initReplay())
     initOcrIndex()
     initHistory()
 
     // All entry points route through startCapture — the license guard lives there.
+    // Record shortcuts toggle: pressed while a recording runs, they stop it.
+    const recordOrStop = (mode: CaptureMode) => (): void => {
+      if (isRecording()) stopCurrentRecording()
+      else startCapture(mode, host)
+    }
     const handlers: Record<ShortcutField, () => void> = {
       captureShortcut: () => startCapture('area', host),
       fullscreenShortcut: () => startCapture('fullscreen', host),
       windowShortcut: () => startCapture('window', host),
       scrollingShortcut: () => startCapture('scrolling', host),
-      recordShortcut: () => startCapture('record', host),
-      recordScreenShortcut: () => startCapture('record-screen', host),
-      recordWindowShortcut: () => startCapture('record-window', host),
-      replayShortcut: () => undefined, // Task 4 wires saveReplay()
+      recordShortcut: recordOrStop('record'),
+      recordScreenShortcut: recordOrStop('record-screen'),
+      recordWindowShortcut: recordOrStop('record-window'),
+      replayShortcut: () => saveReplay(),
       historyShortcut: () => openHistoryPanel()
     }
     const prefs = getPrefs()
@@ -178,6 +190,7 @@ if (!gotLock) {
         updateTrayShortcuts(updated)
         applyHistoryPrefs(updated.clipboardHistory)
         applyLaunchAtLogin(updated.launchAtLogin, true)
+        applyReplayPrefs(updated)
       }
     )
 

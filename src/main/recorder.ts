@@ -46,13 +46,37 @@ export function systemAudioSupported(): boolean {
 }
 
 let current: RecordSession | null = null
-/** What the in-flight getDisplayMedia request should receive (set by startRecording). */
-let pendingSource: { displayId: number; sourceId?: string; audio: boolean } | null = null
+
+export interface PendingSource {
+  displayId: number
+  sourceId?: string
+  audio: boolean
+}
+/** What the NEXT getDisplayMedia request should receive; consumed by the handler (one-shot). */
+let pendingSource: PendingSource | null = null
+
+/** Route the next getDisplayMedia() request (recorder or replay window) to this source. */
+export function setPendingSource(s: PendingSource): void {
+  pendingSource = s
+}
+
+const stateListeners = new Set<(recording: boolean) => void>()
+export function onRecordingStateChange(cb: (recording: boolean) => void): void {
+  stateListeners.add(cb)
+}
+const emitState = (): void => stateListeners.forEach((cb) => cb(current !== null))
+export function isRecording(): boolean {
+  return current !== null
+}
+export function stopCurrentRecording(): void {
+  stopRecording()
+}
 
 /** Route the recorder's getDisplayMedia() to the chosen display or window, no picker. */
 export function setupDisplayMediaHandler(): void {
   electronSession.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
     const pending = pendingSource
+    pendingSource = null // one-shot: the next request needs its own routing
     // No pending job = a getDisplayMedia call we did not initiate: deny it.
     if (!pending) return callback({})
     desktopCapturer
@@ -133,11 +157,11 @@ async function begin(target: RecordTarget): Promise<void> {
   // silently made without system audio rather than failing.
   const systemAudio = prefs.recordSystemAudio && systemAudioSupported()
 
-  pendingSource = {
+  setPendingSource({
     displayId: display.id,
     sourceId: target.source === 'window' ? target.sourceId : undefined,
     audio: systemAudio
-  }
+  })
 
   const recorder = new BrowserWindow({
     show: false,
@@ -200,6 +224,7 @@ async function begin(target: RecordTarget): Promise<void> {
   control.on('closed', onDied)
 
   current = { recorder, control, timer, stopping: false }
+  emitState()
 }
 
 function stopRecording(): void {
@@ -223,8 +248,8 @@ function teardown(): void {
   if (!current) return
   const { recorder, control, timer } = current
   current = null
-  pendingSource = null
   clearInterval(timer)
   if (!recorder.isDestroyed()) recorder.destroy()
   if (!control.isDestroyed()) control.destroy()
+  emitState()
 }
