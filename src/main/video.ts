@@ -12,11 +12,12 @@ import { planExport } from '@shared/videoPlan'
 import { ffmpegPath, runFfmpeg } from './ffmpeg'
 import { getPrefs } from './prefs'
 import { APP_URL } from './protocol'
-import { allowVideoPath, videoUrl } from './videoServe'
+import { allowVideoPath, isVideoPathAllowed, resetVideoAllowList, videoUrl } from './videoServe'
 import { staleRecordings } from './recordingsPrune'
 
 const RENDERER_DEV_URL = process.env['ELECTRON_RENDERER_URL']
-const VIDEO_EXTENSIONS = ['mp4', 'm4v', 'webm', 'mov', 'mkv']
+/** What the picker offers and what a dropped path may be — Chromium cannot decode mkv. */
+const VIDEO_EXTENSIONS = ['mp4', 'm4v', 'webm', 'mov']
 
 let win: BrowserWindow | null = null
 let exportAbort: AbortController | null = null
@@ -26,16 +27,30 @@ const containerOf = (path: string): VideoOpenPayload['container'] => {
   return ext === '.mp4' || ext === '.m4v' ? 'mp4' : ext === '.webm' ? 'webm' : 'other'
 }
 
+/** Only the editor window may drive an export or hand us a path to open. */
+const fromEditor = (event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): boolean =>
+  !!win && !win.isDestroyed() && event.sender.id === win.webContents.id
+
 export function initVideo(): void {
   ipcMain.handle(IpcChannels.videoExport, (event, req: VideoExportRequest) =>
-    exportVideo(event.sender, req)
+    fromEditor(event)
+      ? exportVideo(event.sender, req)
+      : ({ ok: false, error: 'Not allowed.' } satisfies VideoExportResult)
   )
-  ipcMain.on(IpcChannels.videoCancel, () => exportAbort?.abort())
+  ipcMain.on(IpcChannels.videoCancel, (event) => {
+    if (fromEditor(event)) exportAbort?.abort()
+  })
   ipcMain.handle(IpcChannels.videoPickFile, (event) =>
     pickAndOpenVideo(BrowserWindow.fromWebContents(event.sender) ?? undefined)
   )
-  ipcMain.on(IpcChannels.videoOpenPath, (_event, path: string) => {
-    if (VIDEO_EXTENSIONS.includes(extname(path).slice(1).toLowerCase())) openVideo(path)
+  ipcMain.on(IpcChannels.videoOpenPath, (event, path: string) => {
+    if (!fromEditor(event)) return
+    if (!VIDEO_EXTENSIONS.includes(extname(path).slice(1).toLowerCase())) return
+    void stat(path)
+      .catch(() => null)
+      .then((info) => {
+        if (info?.isFile()) openVideo(path)
+      })
   })
   void pruneRecordings()
 }
@@ -74,23 +89,33 @@ function ensureWindow(): BrowserWindow {
 
 export function openVideo(filePath: string): void {
   const w = ensureWindow()
+  // One file open at a time: the previous path stops being servable.
+  resetVideoAllowList()
   allowVideoPath(filePath)
-  void stat(filePath).then((info) => {
-    const payload: VideoOpenPayload = {
-      path: filePath,
-      url: videoUrl(filePath),
-      name: basename(filePath),
-      sizeBytes: info.size,
-      container: containerOf(filePath),
-      ffmpegAvailable: existsSync(ffmpegPath())
-    }
-    const wc = w.webContents
-    const send = (): void => wc.send(IpcChannels.videoOpen, payload)
-    if (wc.isLoading()) wc.once('did-finish-load', send)
-    else send()
-    w.show()
-    w.focus()
-  })
+  // Show before the stat so a failing stat can never leave an invisible window.
+  w.show()
+  w.focus()
+  void stat(filePath)
+    .then((info) => {
+      const payload: VideoOpenPayload = {
+        path: filePath,
+        url: videoUrl(filePath),
+        name: basename(filePath),
+        sizeBytes: info.size,
+        container: containerOf(filePath),
+        ffmpegAvailable: existsSync(ffmpegPath())
+      }
+      const wc = w.webContents
+      const send = (): void => wc.send(IpcChannels.videoOpen, payload)
+      if (wc.isLoading()) wc.once('did-finish-load', send)
+      else send()
+    })
+    .catch((err) => {
+      new Notification({
+        title: 'Cannot open video',
+        body: err instanceof Error ? err.message : String(err)
+      }).show()
+    })
 }
 
 export async function pickAndOpenVideo(parent?: BrowserWindow): Promise<boolean> {
@@ -111,6 +136,12 @@ async function exportVideo(
   { path, edits, meta }: VideoExportRequest
 ): Promise<VideoExportResult> {
   if (exportAbort) return { ok: false, error: 'An export is already running.' }
+  // The renderer only ever exports the file main handed it; re-check, since the
+  // path travels through IPC.
+  if (!isVideoPathAllowed(path)) return { ok: false, error: 'Unknown source file.' }
+  // Claimed before the dialog so a second request is refused and a Cancel that
+  // arrives while the dialog is up is not lost. The finally below still clears it.
+  exportAbort = new AbortController()
   const prefs = getPrefs()
   const { name } = parse(path)
   const filters = {
@@ -126,18 +157,20 @@ async function exportVideo(
     ),
     filters: [filters[edits.container]]
   }
-  const { canceled, filePath } = owner
-    ? await dialog.showSaveDialog(owner, options)
-    : await dialog.showSaveDialog(options)
-  if (canceled || !filePath) return { ok: false, error: 'canceled', canceled: true }
-
-  const plan = planExport(edits, meta, path, filePath)
-  exportAbort = new AbortController()
+  const abort = exportAbort
   try {
+    const { canceled, filePath } = owner
+      ? await dialog.showSaveDialog(owner, options)
+      : await dialog.showSaveDialog(options)
+    if (canceled || !filePath) return { ok: false, error: 'canceled', canceled: true }
+    // Cancel pressed while the dialog was open.
+    if (abort.signal.aborted) return { ok: false, error: 'canceled', canceled: true }
+
+    const plan = planExport(edits, meta, path, filePath)
     await runFfmpeg({
       args: plan.args,
       durationSec: Math.max(0.1, edits.outSec - edits.inSec),
-      signal: exportAbort.signal,
+      signal: abort.signal,
       onProgress: (ratio) => {
         if (!sender.isDestroyed()) sender.send(IpcChannels.videoProgress, ratio)
       }
@@ -192,12 +225,22 @@ export async function finalizeRecording(buffer: Buffer, ext: 'mp4' | 'webm'): Pr
 }
 
 // ponytail: 7-day sweep at startup; a "Recordings" browser in the editor if people ask.
+// NOTE: the sweep deletes ANY file older than 7 days in that folder, not only
+// the ones Snapkit wrote — the directory is ours, so nothing else belongs there.
 async function pruneRecordings(): Promise<void> {
   const dir = recordingsDir()
   const names = await readdir(dir).catch(() => [] as string[])
   const entries = await Promise.all(
-    names.map(async (n) => ({ path: join(dir, n), mtimeMs: (await stat(join(dir, n))).mtimeMs }))
+    names.map(async (n) => {
+      const p = join(dir, n)
+      // A file that vanished between readdir and stat simply drops out.
+      const info = await stat(p).catch(() => null)
+      return info ? { path: p, mtimeMs: info.mtimeMs } : null
+    })
   )
-  for (const p of staleRecordings(entries, Date.now()))
+  for (const p of staleRecordings(
+    entries.filter((e): e is { path: string; mtimeMs: number } => e !== null),
+    Date.now()
+  ))
     await rm(p, { force: true }).catch(() => undefined)
 }

@@ -98,7 +98,12 @@ export function registerRecorderIpc(): void {
         }).show()
         return
       }
-      void finalizeRecording(buffer, ext)
+      void finalizeRecording(buffer, ext).catch((err) =>
+        new Notification({
+          title: 'Could not save recording',
+          body: err instanceof Error ? err.message : String(err)
+        }).show()
+      )
     }
   )
 }

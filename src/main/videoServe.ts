@@ -18,6 +18,10 @@ const allowed = new Set<string>()
 export function allowVideoPath(path: string): void {
   allowed.add(path)
 }
+/** The editor holds one file at a time; forget the previous one when it changes. */
+export function resetVideoAllowList(): void {
+  allowed.clear()
+}
 export function isVideoPathAllowed(path: string): boolean {
   return allowed.has(path)
 }
@@ -56,6 +60,16 @@ export async function serveVideo(request: Request): Promise<Response> {
   const info = await stat(path).catch(() => null)
   if (!info || !info.isFile()) return new Response('not found', { status: 404 })
 
+  const contentType = MIME[extname(path).toLowerCase()] ?? 'application/octet-stream'
+  // An empty file has no satisfiable range at all: answer 200 with no body
+  // rather than letting parseRange turn every request into a 416.
+  if (info.size === 0) {
+    return new Response(null, {
+      status: 200,
+      headers: { 'Content-Type': contentType, 'Accept-Ranges': 'bytes', 'Content-Length': '0' }
+    })
+  }
+
   const range = parseRange(request.headers.get('range'), info.size)
   if (range === 'invalid') {
     return new Response('range not satisfiable', {
@@ -65,7 +79,7 @@ export async function serveVideo(request: Request): Promise<Response> {
   }
   const { start, end } = range ?? { start: 0, end: info.size - 1 }
   const headers: Record<string, string> = {
-    'Content-Type': MIME[extname(path).toLowerCase()] ?? 'application/octet-stream',
+    'Content-Type': contentType,
     'Accept-Ranges': 'bytes',
     'Content-Length': String(end - start + 1)
   }
