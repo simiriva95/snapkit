@@ -10,7 +10,7 @@ import { useVideoStore } from './store'
 
 export function VideoEditor(): React.JSX.Element {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const { file, meta, setFile } = useVideoStore()
+  const { file, meta, openSeq, setFile } = useVideoStore()
 
   useEffect(() => window.videoApi.onOpen(setFile), [setFile])
   useEffect(() => {
@@ -49,7 +49,9 @@ export function VideoEditor(): React.JSX.Element {
         <main className="flex min-w-0 flex-1 flex-col gap-3 p-4">
           <div className="flex min-h-0 flex-1 items-center justify-center">
             {file ? (
-              <Player ref={videoRef} src={file.url} />
+              // Keyed on the open counter: re-opening the same file remounts the
+              // element, so loadedmetadata fires again and meta is rebuilt.
+              <Player key={openSeq} ref={videoRef} src={file.url} />
             ) : (
               <p className="text-sm text-muted-foreground">Drop a video here or use Open…</p>
             )}

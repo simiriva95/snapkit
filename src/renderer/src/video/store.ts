@@ -12,6 +12,8 @@ interface VideoState {
   result: VideoExportResult | null
   /** Source problems (missing file, decode error) — export disabled while set. */
   sourceError: string | null
+  /** Bumped on every open so the <video> remounts even for the same file. */
+  openSeq: number
 
   setFile: (file: VideoOpenPayload) => void
   setMedia: (m: { durationSec: number; width: number; height: number }) => void
@@ -30,12 +32,26 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   exporting: null,
   result: null,
   sourceError: null,
+  openSeq: 0,
 
   setFile: (file) =>
-    set({ file, meta: null, edits: null, playhead: 0, result: null, sourceError: null }),
+    set((s) => ({
+      file,
+      meta: null,
+      edits: null,
+      playhead: 0,
+      result: null,
+      sourceError: null,
+      openSeq: s.openSeq + 1
+    })),
   setMedia: ({ durationSec, width, height }) => {
     const { file } = get()
     if (!file) return
+    // A fragmented/unfinished file reports Infinity or NaN; there is nothing to trim.
+    if (!Number.isFinite(durationSec) || durationSec <= 0) {
+      set({ sourceError: 'Cannot determine the video duration (unsupported or unfinished file).' })
+      return
+    }
     const meta: VideoMeta = {
       durationSec,
       width,
@@ -56,8 +72,15 @@ export const useVideoStore = create<VideoState>((set, get) => ({
     const { file, edits, meta, exporting } = get()
     if (!file || !edits || !meta || exporting) return
     set({ exporting: { progress: 0 }, result: null })
-    const result = await window.videoApi.export({ path: file.path, edits, meta })
-    set({ exporting: null, result: result.ok || !result.canceled ? result : null })
+    try {
+      const result = await window.videoApi.export({ path: file.path, edits, meta })
+      set({ result: result.ok || !result.canceled ? result : null })
+    } catch (err) {
+      // A rejected invoke (main threw, window gone) must still clear the spinner.
+      set({ result: { ok: false, error: err instanceof Error ? err.message : String(err) } })
+    } finally {
+      set({ exporting: null })
+    }
   },
   cancelExport: () => window.videoApi.cancel()
 }))

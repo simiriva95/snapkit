@@ -11,8 +11,16 @@ export async function buildFilmstrip(
   video.muted = true
   video.preload = 'auto'
   await new Promise<void>((resolve, reject) => {
-    video.onloadedmetadata = () => resolve()
-    video.onerror = () => reject(new Error('filmstrip: cannot load video'))
+    // A source that never fires either event must not leave the caller hanging.
+    const timer = setTimeout(() => reject(new Error('filmstrip: timed out loading video')), 5000)
+    video.onloadedmetadata = () => {
+      clearTimeout(timer)
+      resolve()
+    }
+    video.onerror = () => {
+      clearTimeout(timer)
+      reject(new Error('filmstrip: cannot load video'))
+    }
   })
   const canvas = document.createElement('canvas')
   canvas.width = thumbWidth

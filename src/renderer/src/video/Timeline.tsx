@@ -29,9 +29,14 @@ export function Timeline({
   useEffect(() => {
     if (!file || !meta) return
     const ac = new AbortController()
-    void buildFilmstrip(file.url, meta.durationSec, THUMBS, 160, ac.signal).then((t) => {
-      if (!ac.signal.aborted) setThumbs(t)
-    })
+    void buildFilmstrip(file.url, meta.durationSec, THUMBS, 160, ac.signal)
+      .then((t) => {
+        if (!ac.signal.aborted) setThumbs(t)
+      })
+      // A source the hidden <video> cannot decode leaves the placeholder strip.
+      .catch(() => {
+        if (!ac.signal.aborted) setThumbs([])
+      })
     return () => ac.abort()
   }, [file, meta])
 
