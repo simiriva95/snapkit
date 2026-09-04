@@ -345,7 +345,7 @@ function finishSelection(rect: Rect, host: EditorHost, senderId: number): void {
     busy = false
     const display = screen.getDisplayMatching(displayBounds)
     if (purpose === 'scroll') beginScrollSession(display, rect, host)
-    else startRecording(display, rect)
+    else startRecording({ source: 'area', display, rect })
     return
   }
 

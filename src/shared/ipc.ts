@@ -4,7 +4,7 @@
  * exposes on `window.api` / `window.overlayApi`. No magic strings.
  */
 
-import type { RecordFormat } from './recordPlan'
+import type { RecordFormat, RecordFps, RecordResolution } from './recordPlan'
 
 export const IpcChannels = {
   appVersion: 'app:version',
@@ -91,13 +91,21 @@ export interface ScrollFramesPayload {
   dipWidth: number
 }
 
+/** What kind of source a recording job captures. */
+export type RecordSource = 'area' | 'screen' | 'window'
+
 /** Recording job sent to the hidden recorder window. */
 export interface RecordJob {
-  /** Selection in display CSS px. */
-  rect: Rect
+  source: RecordSource
+  /** area only: selection in display CSS px. */
+  rect?: Rect
   /** DIP size of the display being recorded (maps video px → rect px). */
   displaySize: { width: number; height: number }
   format: RecordFormat
+  resolution: RecordResolution
+  fps: RecordFps
+  mic: boolean
+  systemAudio: boolean
   /** Hard stop after this many seconds. */
   maxSeconds: number
 }

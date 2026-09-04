@@ -20,6 +20,12 @@ const RENDERER_DEV_URL = process.env['ELECTRON_RENDERER_URL']
 
 const MAX_SECONDS = 300
 
+/** What to record. `display` is where the control bar goes and, for area/screen, what is captured. */
+export type RecordTarget =
+  | { source: 'area'; display: Display; rect: Rect }
+  | { source: 'screen'; display: Display }
+  | { source: 'window'; display: Display; sourceId: string }
+
 interface RecordSession {
   recorder: BrowserWindow
   control: BrowserWindow
@@ -30,17 +36,22 @@ interface RecordSession {
 }
 
 let current: RecordSession | null = null
-/** Display the in-flight getDisplayMedia request should receive. */
-let pendingDisplayId: number | null = null
+/** What the in-flight getDisplayMedia request should receive (set by startRecording). */
+let pendingSource: { displayId: number; sourceId?: string; audio: boolean } | null = null
 
-/** Route renderer getDisplayMedia() to the right screen without a picker. */
+/** Route the recorder's getDisplayMedia() to the chosen display or window, no picker. */
 export function setupDisplayMediaHandler(): void {
   electronSession.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+    const pending = pendingSource
     desktopCapturer
-      .getSources({ types: ['screen'] })
+      .getSources({ types: pending?.sourceId ? ['window', 'screen'] : ['screen'] })
       .then((sources) => {
-        const match = sources.find((s) => s.display_id === String(pendingDisplayId)) ?? sources[0]
-        callback(match ? { video: match } : {})
+        const match = pending?.sourceId
+          ? sources.find((s) => s.id === pending.sourceId)
+          : (sources.find((s) => s.display_id === String(pending?.displayId)) ?? sources[0])
+        if (!match) return callback({})
+        // 'loopback' = system audio. Works on macOS 13+ and Windows (V0 spike).
+        callback(pending?.audio ? { video: match, audio: 'loopback' } : { video: match })
       })
       .catch(() => callback({}))
   })
@@ -62,13 +73,16 @@ export function registerRecorderIpc(host: EditorHost): void {
   })
 }
 
-export function startRecording(display: Display, rect: Rect): void {
+export function startRecording(target: RecordTarget): void {
   if (current) return
   const prefs = getPrefs()
-  const format = prefs.recordFormat
-  const maxSeconds = MAX_SECONDS
+  const { display } = target
 
-  pendingDisplayId = display.id
+  pendingSource = {
+    displayId: display.id,
+    sourceId: target.source === 'window' ? target.sourceId : undefined,
+    audio: prefs.recordSystemAudio
+  }
 
   const recorder = new BrowserWindow({
     show: false,
@@ -80,18 +94,29 @@ export function startRecording(display: Display, rect: Rect): void {
     }
   })
 
-  const control = createControlBar('record', {
-    x: display.bounds.x + Math.round(rect.x),
-    y: display.bounds.y + Math.round(rect.y),
-    width: Math.round(rect.width),
-    height: Math.round(rect.height)
-  })
+  // Control bar: under the area, or on the recorded display for screen/window.
+  // ponytail: for screen/window the bar is inside the recording — see ROADMAP.
+  const region =
+    target.source === 'area'
+      ? {
+          x: display.bounds.x + Math.round(target.rect.x),
+          y: display.bounds.y + Math.round(target.rect.y),
+          width: Math.round(target.rect.width),
+          height: Math.round(target.rect.height)
+        }
+      : display.bounds
+  const control = createControlBar('record', region)
 
   const job: RecordJob = {
-    rect,
+    source: target.source,
+    rect: target.source === 'area' ? target.rect : undefined,
     displaySize: { width: display.size.width, height: display.size.height },
-    format,
-    maxSeconds
+    format: prefs.recordFormat,
+    resolution: prefs.recordResolution,
+    fps: prefs.recordFps,
+    mic: prefs.recordMic,
+    systemAudio: prefs.recordSystemAudio,
+    maxSeconds: MAX_SECONDS
   }
   recorder.webContents.once('did-finish-load', () => {
     recorder.webContents.send(IpcChannels.recordStart, job)
@@ -107,7 +132,7 @@ export function startRecording(display: Display, rect: Rect): void {
     const mm = String(Math.floor(elapsed / 60)).padStart(2, '0')
     const ss = String(elapsed % 60).padStart(2, '0')
     sendControlStatus(current.control, `${mm}:${ss}`)
-    if (elapsed >= maxSeconds) stopRecording()
+    if (elapsed >= MAX_SECONDS) stopRecording()
   }, 500)
 
   const onDied = (): void => {
@@ -118,14 +143,7 @@ export function startRecording(display: Display, rect: Rect): void {
   recorder.on('closed', onDied)
   control.on('closed', onDied)
 
-  current = {
-    recorder,
-    control,
-    timer,
-    startedAt,
-    ext: format,
-    stopping: false
-  }
+  current = { recorder, control, timer, startedAt, ext: prefs.recordFormat, stopping: false }
 }
 
 function stopRecording(): void {
@@ -147,7 +165,7 @@ function teardown(): void {
   if (!current) return
   const { recorder, control, timer } = current
   current = null
-  pendingDisplayId = null
+  pendingSource = null
   clearInterval(timer)
   if (!recorder.isDestroyed()) recorder.destroy()
   if (!control.isDestroyed()) control.destroy()
