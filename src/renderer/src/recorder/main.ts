@@ -46,6 +46,19 @@ const RAW_STEREO: MediaTrackConstraints = {
   channelCount: 2
 }
 
+const MIC_VOICE: MediaTrackConstraints = {
+  // Deliberately the opposite of RAW_STEREO: AEC keeps the system audio from
+  // being captured a second time through speaker bleed, and NS/AGC are what a
+  // voice-over track wants. Mono — a commentary track needs no stereo image.
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+  channelCount: 1
+}
+
+/** Mixing two sources at unity gain clips; -2 dB each leaves headroom. */
+const MIX_GAIN = 0.8
+
 async function record(job: RecordJob): Promise<void> {
   let display: MediaStream | null = null
   let mic: MediaStream | null = null
@@ -66,7 +79,7 @@ async function record(job: RecordJob): Promise<void> {
       audio: job.systemAudio ? RAW_STEREO : false
     })
     mic = job.mic
-      ? await navigator.mediaDevices.getUserMedia({ audio: true }).catch((err: unknown) => {
+      ? await navigator.mediaDevices.getUserMedia({ audio: MIC_VOICE }).catch((err: unknown) => {
           console.warn('[recorder] microphone unavailable, recording without it', err)
           return null
         })
@@ -94,7 +107,8 @@ async function record(job: RecordJob): Promise<void> {
     const micTrack = mic?.getAudioTracks()[0]
     let audioTrack: MediaStreamTrack | undefined
     if (systemTrack || micTrack) {
-      audioCtx = new AudioContext()
+      // 48 kHz: what both Opus and AAC want, and what loopback capture delivers.
+      audioCtx = new AudioContext({ sampleRate: 48000 })
       audioTrack = mergeAudio(audioCtx, systemTrack, micTrack)
     }
     const stream = new MediaStream(audioTrack ? [videoTrack, audioTrack] : [videoTrack])
@@ -117,6 +131,12 @@ async function record(job: RecordJob): Promise<void> {
     }
     const done = new Promise<void>((resolve) => {
       recorder.onstop = () => resolve()
+      // An encoder error may never fire onstop. Resolve anyway and save the
+      // chunks collected so far; no chunks → main's empty-buffer path reports it.
+      recorder.onerror = (e) => {
+        console.error('[recorder] MediaRecorder error', e)
+        resolve()
+      }
     })
     recorder.start(1000)
 
@@ -171,7 +191,15 @@ async function cropToCanvas(
   draw()
 
   const track = canvas.captureStream(job.fps).getVideoTracks()[0]
-  return { track, stop: () => cancelAnimationFrame(raf), size: out }
+  return {
+    track,
+    stop: () => {
+      cancelAnimationFrame(raf)
+      track.stop()
+      video.srcObject = null
+    },
+    size: out
+  }
 }
 
 /** One audio track out of up to two: pass-through for one source, mixed for two. */
@@ -182,6 +210,13 @@ function mergeAudio(
 ): MediaStreamTrack | undefined {
   if (!system || !mic) return system ?? mic
   const dest = ctx.createMediaStreamDestination()
-  for (const t of [system, mic]) ctx.createMediaStreamSource(new MediaStream([t])).connect(dest)
+  for (const t of [system, mic]) {
+    const gain = ctx.createGain()
+    gain.gain.value = MIX_GAIN
+    ctx
+      .createMediaStreamSource(new MediaStream([t]))
+      .connect(gain)
+      .connect(dest)
+  }
   return dest.stream.getAudioTracks()[0]
 }
