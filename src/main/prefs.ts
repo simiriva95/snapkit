@@ -13,6 +13,7 @@ export const SHORTCUT_FIELDS = [
   'recordShortcut',
   'recordScreenShortcut',
   'recordWindowShortcut',
+  'replayShortcut',
   'historyShortcut'
 ] as const
 export type ShortcutField = (typeof SHORTCUT_FIELDS)[number]

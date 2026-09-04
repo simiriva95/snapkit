@@ -1,5 +1,6 @@
 import { DEFAULT_CAPTURE_SHORTCUT, DEFAULT_HISTORY_SHORTCUT } from './ipc'
 import type { RecordFormat, RecordFps, RecordResolution } from './recordPlan'
+import { REPLAY_SECONDS, type ReplaySeconds } from './replayPlan'
 
 /** User preferences, persisted by electron-store in the main process. */
 export interface Prefs {
@@ -48,6 +49,14 @@ export interface Prefs {
   /** Start Snapkit in the tray when the user logs in. Packaged builds only. */
   launchAtLogin: boolean
   onboardingDone: boolean
+  /** Seconds kept by the background replay buffer; 0 = off. */
+  replayBuffer: ReplaySeconds
+  /** Electron accelerator that saves the replay. */
+  replayShortcut: string
+  /** Folder for saved clips. null = <Videos>/Snapkit Clips. */
+  clipsDir: string | null
+  /** Open every saved clip in the editor instead of just notifying. */
+  clipOpenInEditor: boolean
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -75,7 +84,11 @@ export const DEFAULT_PREFS: Prefs = {
   historyShortcut: DEFAULT_HISTORY_SHORTCUT,
   autoPaste: false,
   launchAtLogin: false,
-  onboardingDone: false
+  onboardingDone: false,
+  replayBuffer: 0,
+  replayShortcut: 'CommandOrControl+Shift+8',
+  clipsDir: null,
+  clipOpenInEditor: false
 }
 
 /** Languages shipped with the app (see src/renderer/public/ocr/lang). */
@@ -104,5 +117,6 @@ export function normalizePrefs(raw: Prefs): Prefs {
   // value that isn't there (undefined bitrate → MediaRecorder throws).
   if (!RESOLUTIONS.includes(p.recordResolution)) p.recordResolution = 'native'
   if (!FPS.includes(p.recordFps)) p.recordFps = 30
+  if (!REPLAY_SECONDS.includes(p.replayBuffer)) p.replayBuffer = 0
   return p
 }

@@ -7,7 +7,8 @@ import type {
   PickerApi,
   RecorderApi,
   SnapkitApi,
-  VideoApi
+  VideoApi,
+  ReplayApi
 } from '@shared/ipc'
 
 declare global {
@@ -20,5 +21,6 @@ declare global {
     historyApi: HistoryApi
     ocrApi: OcrApi
     videoApi: VideoApi
+    replayApi: ReplayApi
   }
 }

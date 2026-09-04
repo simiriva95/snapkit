@@ -151,6 +151,7 @@ if (!gotLock) {
       recordShortcut: () => startCapture('record', host),
       recordScreenShortcut: () => startCapture('record-screen', host),
       recordWindowShortcut: () => startCapture('record-window', host),
+      replayShortcut: () => undefined, // Task 4 wires saveReplay()
       historyShortcut: () => openHistoryPanel()
     }
     const prefs = getPrefs()

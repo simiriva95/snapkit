@@ -41,3 +41,16 @@ describe('normalizePrefs', () => {
     expect(normalizePrefs({ ...DEFAULT_PREFS, recordFps: 60 }).recordFps).toBe(60)
   })
 })
+
+describe('replay prefs', () => {
+  it('default off, ⌘⇧8, default clips dir, silent save', () => {
+    expect(DEFAULT_PREFS.replayBuffer).toBe(0)
+    expect(DEFAULT_PREFS.replayShortcut).toBe('CommandOrControl+Shift+8')
+    expect(DEFAULT_PREFS.clipsDir).toBeNull()
+    expect(DEFAULT_PREFS.clipOpenInEditor).toBe(false)
+  })
+  it('clamps an unknown replay length to off', () => {
+    expect(normalizePrefs({ ...DEFAULT_PREFS, replayBuffer: 45 as never }).replayBuffer).toBe(0)
+    expect(normalizePrefs({ ...DEFAULT_PREFS, replayBuffer: 120 }).replayBuffer).toBe(120)
+  })
+})
