@@ -163,8 +163,8 @@ made the trip.
 
 Finished recordings land in `~/Library/Application Support/Snapkit/recordings`
 (`%APPDATA%\Snapkit\recordings` on Windows, `~/.config/Snapkit/recordings` on Linux) and
-are kept for **7 days** — export the ones you want to keep before then. The folder is
-named after the product, so `npm run dev` uses the lowercase `snapkit` one instead.
+are kept for **7 days** — export the ones you want to keep before then. Packaged builds use
+the `productName` folder (`Snapkit`); `npm run dev` falls back to the package name (`snapkit`).
 
 The video editor plays what Chromium can decode: MP4/M4V, WebM and MOV. `.mkv` is not
 supported — remux it to MP4 first.

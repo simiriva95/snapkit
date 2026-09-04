@@ -22,8 +22,6 @@ const VIDEO_EXTENSIONS = ['mp4', 'm4v', 'webm', 'mov']
 let win: BrowserWindow | null = null
 let exportAbort: AbortController | null = null
 
-const containerOf = (path: string): VideoOpenPayload['container'] => containerFromName(path)
-
 /** Only the editor window may drive an export or hand us a path to open. */
 const fromEditor = (event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): boolean =>
   !!win && !win.isDestroyed() && event.sender.id === win.webContents.id
@@ -99,7 +97,7 @@ export function openVideo(filePath: string): void {
         url: videoUrl(filePath),
         name: basename(filePath),
         sizeBytes: info.size,
-        container: containerOf(filePath),
+        container: containerFromName(filePath),
         ffmpegAvailable: existsSync(ffmpegPath())
       }
       const wc = w.webContents
@@ -137,25 +135,26 @@ async function exportVideo(
   // path travels through IPC.
   if (!isVideoPathAllowed(path)) return { ok: false, error: 'Unknown source file.' }
   // Claimed before the dialog so a second request is refused and a Cancel that
-  // arrives while the dialog is up is not lost. The finally below still clears it.
-  exportAbort = new AbortController()
-  const prefs = getPrefs()
-  const { name } = parse(path)
-  const filters = {
-    mp4: { name: 'MP4 video', extensions: ['mp4'] },
-    webm: { name: 'WebM video', extensions: ['webm'] },
-    gif: { name: 'GIF', extensions: ['gif'] }
-  }
-  const owner = BrowserWindow.fromWebContents(sender)
-  const options = {
-    defaultPath: join(
-      prefs.exportDir ?? app.getPath('desktop'),
-      `${name} (edited).${edits.container}`
-    ),
-    filters: [filters[edits.container]]
-  }
-  const abort = exportAbort
+  // arrives while the dialog is up is not lost. Claimed as the LAST step before
+  // the first await, inside the try, so nothing can throw between claim and finally.
+  const abort = new AbortController()
   try {
+    const prefs = getPrefs()
+    const { name } = parse(path)
+    const filters = {
+      mp4: { name: 'MP4 video', extensions: ['mp4'] },
+      webm: { name: 'WebM video', extensions: ['webm'] },
+      gif: { name: 'GIF', extensions: ['gif'] }
+    }
+    const owner = BrowserWindow.fromWebContents(sender)
+    const options = {
+      defaultPath: join(
+        prefs.exportDir ?? app.getPath('desktop'),
+        `${name} (edited).${edits.container}`
+      ),
+      filters: [filters[edits.container]]
+    }
+    exportAbort = abort
     const { canceled, filePath } = owner
       ? await dialog.showSaveDialog(owner, options)
       : await dialog.showSaveDialog(options)

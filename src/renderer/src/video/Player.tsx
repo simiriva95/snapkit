@@ -17,6 +17,14 @@ export const Player = forwardRef<HTMLVideoElement, { src: string }>(function Pla
         setSourceError(null)
         setMedia({ durationSec: v.duration, width: v.videoWidth, height: v.videoHeight })
       }}
+      // Some files report Infinity first and the real duration a moment later.
+      onDurationChange={(e) => {
+        const v = e.currentTarget
+        if (Number.isFinite(v.duration) && v.duration > 0 && v.videoWidth > 0) {
+          setSourceError(null)
+          setMedia({ durationSec: v.duration, width: v.videoWidth, height: v.videoHeight })
+        }
+      }}
       onTimeUpdate={(e) => setPlayhead(e.currentTarget.currentTime)}
       onError={() => setSourceError('File moved, deleted or not decodable.')}
     />
