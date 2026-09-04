@@ -11,12 +11,19 @@ import { setupCapture, type Capture } from '../recorder/capture'
 
 let stopRequested = false
 let rotate: ((flushId?: number) => void) | null = null
+/** A rotate that arrived while no wait was pending (during setup or a finish()); consumed by the next wait. */
+let queued: { flushId?: number } | null = null
+
+const requestRotate = (flushId?: number): void => {
+  if (rotate) rotate(flushId)
+  else queued = { flushId }
+}
 
 window.replayApi.onStop(() => {
   stopRequested = true
-  rotate?.()
+  requestRotate()
 })
-window.replayApi.onFlush((id) => rotate?.(id))
+window.replayApi.onFlush((id) => requestRotate(id))
 window.replayApi.onStart((job) => {
   void run(job).catch((err: unknown) => {
     console.error('[replay]', err)
@@ -63,6 +70,12 @@ function startSegment(cap: Capture): Running {
 /** Resolves after ms, or earlier when rotate() is called (with an optional flush id). */
 function waitRotate(ms: number): Promise<number | undefined> {
   return new Promise((resolve) => {
+    if (queued) {
+      const { flushId } = queued
+      queued = null
+      resolve(flushId)
+      return
+    }
     const timer = setTimeout(() => {
       rotate = null
       resolve(undefined)
@@ -87,7 +100,7 @@ async function run(job: ReplayJob): Promise<void> {
     onEnded: () => {
       // Display unplugged / capture revoked: main restarts the buffer on this error.
       stopRequested = true
-      rotate?.()
+      requestRotate()
       window.replayApi.sendError('screen capture ended')
     }
   })
@@ -104,6 +117,14 @@ async function run(job: ReplayJob): Promise<void> {
         window.replayApi.sendSegment(new ArrayBuffer(0), 0, cap.ext, flushId)
       }
       if (!next) break
+      if (stopRequested) {
+        // Stop landed while the previous segment was finishing: close the new one too.
+        const tail = await next.finish()
+        if (tail.buffer.byteLength > 0) {
+          window.replayApi.sendSegment(tail.buffer, tail.durationMs, cap.ext)
+        }
+        break
+      }
       current = next
     }
   } finally {

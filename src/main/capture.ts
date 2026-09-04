@@ -523,7 +523,7 @@ async function grabDisplay(display: Display): Promise<NativeImage> {
  * in the privacy pane after an attempted capture, and a grant requires an app
  * relaunch to take effect.
  */
-async function ensureScreenPermission(): Promise<boolean> {
+export async function ensureScreenPermission(): Promise<boolean> {
   if (process.platform !== 'darwin') return true
   if (systemPreferences.getMediaAccessStatus('screen') === 'granted') return true
 

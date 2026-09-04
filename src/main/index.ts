@@ -19,6 +19,7 @@ import {
   initReplay,
   onReplayStateChange,
   saveReplay,
+  stopReplay,
   sweepReplayTemp
 } from './replay'
 import { initVideo, pickAndOpenVideo } from './video'
@@ -244,6 +245,7 @@ if (!gotLock) {
   app.on('window-all-closed', () => {})
 
   app.on('will-quit', () => {
+    void stopReplay()
     unregisterShortcuts()
     stopHistory()
     stopOcrIndex()
