@@ -1,7 +1,7 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import Store from 'electron-store'
 import { IpcChannels } from '@shared/ipc'
-import { DEFAULT_PREFS, type Prefs, type PrefsSetResult } from '@shared/prefs'
+import { DEFAULT_PREFS, normalizePrefs, type Prefs, type PrefsSetResult } from '@shared/prefs'
 
 const store = new Store<Prefs>({ defaults: DEFAULT_PREFS })
 
@@ -11,12 +11,14 @@ export const SHORTCUT_FIELDS = [
   'windowShortcut',
   'scrollingShortcut',
   'recordShortcut',
+  'recordScreenShortcut',
+  'recordWindowShortcut',
   'historyShortcut'
 ] as const
 export type ShortcutField = (typeof SHORTCUT_FIELDS)[number]
 
 export function getPrefs(): Prefs {
-  return { ...DEFAULT_PREFS, ...store.store }
+  return normalizePrefs({ ...DEFAULT_PREFS, ...store.store })
 }
 
 /**

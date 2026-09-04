@@ -294,8 +294,8 @@ function PrefsPanel({ onBack }: { onBack: () => void }): React.JSX.Element {
               ariaLabel="Recording format"
               value={prefs.recordFormat}
               options={[
-                { value: 'webm', label: 'WebM (5 min)' },
-                { value: 'gif', label: 'GIF (30 s)' }
+                { value: 'mp4', label: 'MP4' },
+                { value: 'webm', label: 'WebM' }
               ]}
               onChange={(recordFormat) => patch({ recordFormat })}
             />

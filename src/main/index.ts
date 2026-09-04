@@ -147,6 +147,8 @@ if (!gotLock) {
       windowShortcut: () => startCapture('window', host),
       scrollingShortcut: () => startCapture('scrolling', host),
       recordShortcut: () => startCapture('record', host),
+      recordScreenShortcut: () => startCapture('record', host),
+      recordWindowShortcut: () => startCapture('record', host),
       historyShortcut: () => openHistoryPanel()
     }
     const prefs = getPrefs()

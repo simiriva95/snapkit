@@ -1,16 +1,11 @@
-import { GIFEncoder, quantize, applyPalette } from 'gifenc'
 import type { RecordJob } from '@shared/ipc'
 
 /**
  * Hidden recorder page. Receives the job from main, grabs the screen via
  * getDisplayMedia (main's DisplayMediaRequestHandler picks the right display,
- * no picker), crops the selection on a canvas and encodes:
- *   webm — MediaRecorder on canvas.captureStream
- *   gif  — 10fps frames through gifenc (per-frame palette)
+ * no picker), crops the selection on a canvas and encodes via MediaRecorder
+ * on canvas.captureStream.
  */
-
-const GIF_FPS = 10
-const GIF_MAX_WIDTH = 800
 
 let stopRequested = false
 let stopFn: (() => void) | null = null
@@ -24,7 +19,7 @@ window.recorderApi.onStart((job) => {
   void record(job).catch((err) => {
     console.error('[recorder]', err)
     // Report an empty result so main tears the session down instead of hanging.
-    window.recorderApi.sendResult(new ArrayBuffer(0), job.format === 'gif' ? 'gif' : 'webm')
+    window.recorderApi.sendResult(new ArrayBuffer(0), job.format)
   })
 })
 
@@ -47,12 +42,10 @@ async function record(job: RecordJob): Promise<void> {
   const sw = Math.min(Math.round(job.rect.width * fx), video.videoWidth - sx)
   const sh = Math.min(Math.round(job.rect.height * fy), video.videoHeight - sy)
 
-  // Output size: native crop for webm, capped width for gif.
-  const scale = job.format === 'gif' ? Math.min(1, GIF_MAX_WIDTH / sw) : 1
   const canvas = document.createElement('canvas')
-  canvas.width = Math.max(2, Math.round(sw * scale))
-  canvas.height = Math.max(2, Math.round(sh * scale))
-  const ctx = canvas.getContext('2d', { willReadFrequently: job.format === 'gif' })
+  canvas.width = Math.max(2, sw)
+  canvas.height = Math.max(2, sh)
+  const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('canvas 2d context unavailable')
 
   let raf = 0
@@ -65,31 +58,6 @@ async function record(job: RecordJob): Promise<void> {
   const cleanup = (): void => {
     cancelAnimationFrame(raf)
     stream.getTracks().forEach((t) => t.stop())
-  }
-
-  if (job.format === 'gif') {
-    const gif = GIFEncoder()
-    const delay = Math.round(1000 / GIF_FPS)
-    const interval = setInterval(() => {
-      const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const palette = quantize(data, 256)
-      const index = applyPalette(data, palette)
-      gif.writeFrame(index, width, height, { palette, delay })
-    }, delay)
-
-    await new Promise<void>((resolve) => {
-      stopFn = resolve
-      if (stopRequested) resolve()
-    })
-    clearInterval(interval)
-    cleanup()
-    gif.finish()
-    const bytes = gif.bytes()
-    window.recorderApi.sendResult(
-      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
-      'gif'
-    )
-    return
   }
 
   // WebM via MediaRecorder.

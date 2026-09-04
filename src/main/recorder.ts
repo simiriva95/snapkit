@@ -18,8 +18,7 @@ import type { EditorHost } from './capture'
 
 const RENDERER_DEV_URL = process.env['ELECTRON_RENDERER_URL']
 
-const WEBM_MAX_SECONDS = 300
-const GIF_MAX_SECONDS = 30
+const MAX_SECONDS = 300
 
 interface RecordSession {
   recorder: BrowserWindow
@@ -67,7 +66,7 @@ export function startRecording(display: Display, rect: Rect): void {
   if (current) return
   const prefs = getPrefs()
   const format = prefs.recordFormat
-  const maxSeconds = format === 'gif' ? GIF_MAX_SECONDS : WEBM_MAX_SECONDS
+  const maxSeconds = MAX_SECONDS
 
   pendingDisplayId = display.id
 
@@ -124,7 +123,7 @@ export function startRecording(display: Display, rect: Rect): void {
     control,
     timer,
     startedAt,
-    ext: format === 'gif' ? 'gif' : 'webm',
+    ext: format,
     stopping: false
   }
 }
@@ -166,9 +165,9 @@ async function saveRecording(buffer: Buffer, ext: string, host: EditorHost): Pro
   const options = {
     defaultPath: join(dir, name),
     filters: [
-      ext === 'gif'
-        ? { name: 'GIF', extensions: ['gif'] }
-        : { name: 'WebM video', extensions: ['webm'] }
+      ext === 'webm'
+        ? { name: 'WebM video', extensions: ['webm'] }
+        : { name: 'MP4 video', extensions: ['mp4'] }
     ]
   }
   const { canceled, filePath } = win

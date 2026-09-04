@@ -4,6 +4,8 @@
  * exposes on `window.api` / `window.overlayApi`. No magic strings.
  */
 
+import type { RecordFormat } from './recordPlan'
+
 export const IpcChannels = {
   appVersion: 'app:version',
   windowHide: 'window:hide',
@@ -95,7 +97,7 @@ export interface RecordJob {
   rect: Rect
   /** DIP size of the display being recorded (maps video px → rect px). */
   displaySize: { width: number; height: number }
-  format: 'webm' | 'gif'
+  format: RecordFormat
   /** Hard stop after this many seconds. */
   maxSeconds: number
 }
