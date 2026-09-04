@@ -21,7 +21,7 @@
   <a href="ROADMAP.md">Roadmap</a>
 </p>
 
-<!-- SCREENSHOT: hero shot — the editor open on a terminal screenshot with dashed auto-redaction regions proposed over an API key, 1280px wide -->
+<p align="center"><img src="docs/screenshots/hero.png" width="820" alt="hero shot — the editor open on a terminal screenshot with dashed auto-redaction regions proposed over an API key, 1280px wide"></p>
 
 Every screenshot tool can draw an arrow. Snapkit is built around a different problem: screenshots
 leak secrets. Terminal output with an `AWS_SECRET_KEY`, a bug report with a JWT in the network tab,
@@ -55,7 +55,7 @@ ship with the app, so airplane mode changes nothing.
   license crypto are plain functions with Vitest suites; CI runs them on macOS, Windows and Linux
   before every release build.
 
-<!-- SCREENSHOT: the redaction review step — dashed regions labelled "JWT", "AWS access key", "Email address" over a terminal, with the "Blur N" button visible -->
+<p align="center"><img src="docs/screenshots/redaction-review.png" width="820" alt="the redaction review step — dashed regions labelled &quot;JWT&quot;, &quot;AWS access key&quot;, &quot;Email address&quot; over a terminal, with the &quot;Blur N&quot; button visible"></p>
 
 ## Tech stack
 
