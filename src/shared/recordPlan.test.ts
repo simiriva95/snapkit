@@ -6,8 +6,8 @@ describe('outputSize', () => {
     expect(outputSize({ width: 1001, height: 501 }, 'native')).toEqual({ width: 1002, height: 502 })
   })
   it('fits a Retina 16:10 screen into the 1080 box, aspect preserved', () => {
-    // 3024x1964 → limited by height: 1964→1080 (×0.55) → width 1663 → even 1664
-    expect(outputSize({ width: 3024, height: 1964 }, 1080)).toEqual({ width: 1664, height: 1080 })
+    // 3024x1964 → limited by height: 1964→1080 (×0.5499) → width 1662.9 → nearest even 1662
+    expect(outputSize({ width: 3024, height: 1964 }, 1080)).toEqual({ width: 1662, height: 1080 })
   })
   it('fits a portrait region by height', () => {
     expect(outputSize({ width: 800, height: 1600 }, 720)).toEqual({ width: 360, height: 720 })

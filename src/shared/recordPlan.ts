@@ -29,8 +29,8 @@ export function outputSize(source: Size, resolution: RecordResolution): Size {
   const box = RESOLUTION_BOX[resolution]
   const scale = Math.min(1, box.width / source.width, box.height / source.height)
   return {
-    width: even(Math.round(source.width * scale)),
-    height: even(Math.round(source.height * scale))
+    width: even(source.width * scale),
+    height: even(source.height * scale)
   }
 }
 
