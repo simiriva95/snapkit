@@ -4,6 +4,7 @@ import { Button } from '@renderer/components/ui/button'
 import { dragRegion, noDrag } from '@renderer/lib/titlebar'
 import { ExportPanel } from './ExportPanel'
 import { Player } from './Player'
+import { Timeline } from './Timeline'
 import { fmtBytes, fmtTime } from './format'
 import { useVideoStore } from './store'
 
@@ -53,7 +54,7 @@ export function VideoEditor(): React.JSX.Element {
               <p className="text-sm text-muted-foreground">Drop a video here or use Open…</p>
             )}
           </div>
-          {/* Timeline mounts here in Task 5: <Timeline videoRef={videoRef} /> */}
+          {file && <Timeline videoRef={videoRef} />}
           {file && meta && (
             <p className="font-mono text-[11px] text-muted-foreground">
               {meta.width}×{meta.height} · {fmtTime(meta.durationSec)} · {fmtBytes(meta.sizeBytes)}
