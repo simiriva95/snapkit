@@ -37,75 +37,86 @@ const RAW_STEREO: MediaTrackConstraints = {
 }
 
 async function record(job: RecordJob): Promise<void> {
-  // Screen/window: let Chromium downscale into the preset box. Area: full-res track, canvas crops.
-  const box =
-    job.source !== 'area' && job.resolution !== 'native'
-      ? RESOLUTION_BOX[job.resolution]
-      : undefined
-  const display = await navigator.mediaDevices.getDisplayMedia({
-    video: {
-      frameRate: job.fps,
-      ...(box ? { width: { max: box.width }, height: { max: box.height } } : {})
-    },
-    audio: job.systemAudio ? RAW_STEREO : false
-  })
-  const mic = job.mic
-    ? await navigator.mediaDevices.getUserMedia({ audio: true }).catch((err: unknown) => {
-        console.warn('[recorder] microphone unavailable, recording without it', err)
-        return null
-      })
-    : null
+  let display: MediaStream | null = null
+  let mic: MediaStream | null = null
+  let stopCanvas: (() => void) | null = null
+  let audioCtx: AudioContext | null = null
 
-  const screenTrack = display.getVideoTracks()[0]
-  // The recorded window was closed / share ended → finish what we have.
-  screenTrack.addEventListener('ended', () => {
-    stopRequested = true
-    stopFn?.()
-  })
+  try {
+    // Screen/window: let Chromium downscale into the preset box. Area: full-res track, canvas crops.
+    const box =
+      job.source !== 'area' && job.resolution !== 'native'
+        ? RESOLUTION_BOX[job.resolution]
+        : undefined
+    display = await navigator.mediaDevices.getDisplayMedia({
+      video: {
+        frameRate: job.fps,
+        ...(box ? { width: { max: box.width }, height: { max: box.height } } : {})
+      },
+      audio: job.systemAudio ? RAW_STEREO : false
+    })
+    mic = job.mic
+      ? await navigator.mediaDevices.getUserMedia({ audio: true }).catch((err: unknown) => {
+          console.warn('[recorder] microphone unavailable, recording without it', err)
+          return null
+        })
+      : null
 
-  let videoTrack = screenTrack
-  let stopCanvas = (): void => {}
-  if (job.source === 'area' && job.rect) {
-    const crop = await cropToCanvas(display, job, job.rect)
-    videoTrack = crop.track
-    stopCanvas = crop.stop
+    const screenTrack = display.getVideoTracks()[0]
+    // The recorded window was closed / share ended → finish what we have.
+    screenTrack.addEventListener('ended', () => {
+      stopRequested = true
+      stopFn?.()
+    })
+
+    let videoTrack = screenTrack
+    if (job.source === 'area' && job.rect) {
+      const crop = await cropToCanvas(display, job, job.rect)
+      videoTrack = crop.track
+      stopCanvas = crop.stop
+    }
+
+    const systemTrack = display.getAudioTracks()[0]
+    const micTrack = mic?.getAudioTracks()[0]
+    let audioTrack: MediaStreamTrack | undefined
+    if (systemTrack || micTrack) {
+      audioCtx = new AudioContext()
+      audioTrack = mergeAudio(audioCtx, systemTrack, micTrack)
+    }
+    const stream = new MediaStream(audioTrack ? [videoTrack, audioTrack] : [videoTrack])
+
+    const mime = pickMimeType(job.format, (m) => MediaRecorder.isTypeSupported(m))
+    if (!mime) throw new Error('MediaRecorder supports neither mp4 nor webm here')
+
+    const recorder = new MediaRecorder(stream, {
+      mimeType: mime.mimeType,
+      videoBitsPerSecond: videoBitrate(job.resolution, job.fps),
+      audioBitsPerSecond: 128_000
+    })
+    const chunks: Blob[] = []
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunks.push(e.data)
+    }
+    const done = new Promise<void>((resolve) => {
+      recorder.onstop = () => resolve()
+    })
+    recorder.start(1000)
+
+    await new Promise<void>((resolve) => {
+      stopFn = resolve
+      if (stopRequested) resolve()
+    })
+    recorder.stop()
+    await done
+
+    const blob = new Blob(chunks, { type: mime.mimeType })
+    window.recorderApi.sendResult(await blob.arrayBuffer(), mime.ext)
+  } finally {
+    stopCanvas?.()
+    display?.getTracks().forEach((t) => t.stop())
+    mic?.getTracks().forEach((t) => t.stop())
+    await audioCtx?.close().catch(() => undefined)
   }
-
-  const audioCtx = new AudioContext()
-  const audioTrack = mergeAudio(audioCtx, display.getAudioTracks()[0], mic?.getAudioTracks()[0])
-  const stream = new MediaStream(audioTrack ? [videoTrack, audioTrack] : [videoTrack])
-
-  const mime = pickMimeType(job.format, (m) => MediaRecorder.isTypeSupported(m))
-  if (!mime) throw new Error('MediaRecorder supports neither mp4 nor webm here')
-
-  const recorder = new MediaRecorder(stream, {
-    mimeType: mime.mimeType,
-    videoBitsPerSecond: videoBitrate(job.resolution, job.fps),
-    audioBitsPerSecond: 128_000
-  })
-  const chunks: Blob[] = []
-  recorder.ondataavailable = (e) => {
-    if (e.data.size > 0) chunks.push(e.data)
-  }
-  const done = new Promise<void>((resolve) => {
-    recorder.onstop = () => resolve()
-  })
-  recorder.start(1000)
-
-  await new Promise<void>((resolve) => {
-    stopFn = resolve
-    if (stopRequested) resolve()
-  })
-  recorder.stop()
-  await done
-
-  stopCanvas()
-  display.getTracks().forEach((t) => t.stop())
-  mic?.getTracks().forEach((t) => t.stop())
-  await audioCtx.close()
-
-  const blob = new Blob(chunks, { type: mime.mimeType })
-  window.recorderApi.sendResult(await blob.arrayBuffer(), mime.ext)
 }
 
 /** Area recording: draw the selected region of the full-res track onto a preset-sized canvas. */
