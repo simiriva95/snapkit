@@ -34,6 +34,8 @@ mac:
   # Before selling: Developer ID + hardenedRuntime:true + notarize (docs/selling.md).
   identity: '-'
   hardenedRuntime: false
+  extendInfo:
+    NSMicrophoneUsageDescription: Snapkit records your microphone only when you enable it for screen recordings.
   target:
     - dmg
     - zip

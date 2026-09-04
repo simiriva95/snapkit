@@ -4,8 +4,10 @@ import {
   desktopCapturer,
   dialog,
   ipcMain,
+  Notification,
   session as electronSession,
   shell,
+  systemPreferences,
   type Display
 } from 'electron'
 import { writeFile } from 'fs/promises'
@@ -75,7 +77,23 @@ export function registerRecorderIpc(host: EditorHost): void {
 
 export function startRecording(target: RecordTarget): void {
   if (current) return
+  void begin(target)
+}
+
+async function begin(target: RecordTarget): Promise<void> {
   const prefs = getPrefs()
+  let mic = prefs.recordMic
+  if (mic && process.platform === 'darwin') {
+    // First call shows the OS prompt (needs NSMicrophoneUsageDescription in the bundle).
+    mic = await systemPreferences.askForMediaAccess('microphone')
+    if (!mic) {
+      new Notification({
+        title: 'Recording without microphone',
+        body: 'Allow Snapkit in System Settings → Privacy & Security → Microphone to include your voice.'
+      }).show()
+    }
+  }
+  if (current) return
   const { display } = target
 
   pendingSource = {
@@ -114,7 +132,7 @@ export function startRecording(target: RecordTarget): void {
     format: prefs.recordFormat,
     resolution: prefs.recordResolution,
     fps: prefs.recordFps,
-    mic: prefs.recordMic,
+    mic,
     systemAudio: prefs.recordSystemAudio,
     maxSeconds: MAX_SECONDS
   }

@@ -61,7 +61,9 @@ Snapkit runs OCR **locally**, finds the sensitive bits, and blurs them before yo
 
 **Record**
 
-- Region recording → **WebM** (up to 5 min) or **GIF** (up to 30 s), saved wherever you want
+- Area, full screen or window → **MP4** (H.264 + AAC) or WebM, up to 5 min
+- Resolution presets (native / 1440p / 1080p / 720p), 30 or 60 fps
+- System audio (macOS 13+, Windows) and/or microphone
 
 **Export**
 
@@ -71,7 +73,7 @@ Snapkit runs OCR **locally**, finds the sensitive bits, and blurs them before yo
 **Preferences**
 
 - Shortcuts, dark/light/system theme, OCR languages (English, Italiano, Deutsch, Français,
-  Español — bundled), export folder & format, recording format, auto-redact after capture,
+  Español — bundled), export folder & format, recording format, resolution, frame rate and audio, auto-redact after capture,
   start at system start (launches silently in the tray)
 
 ## 📦 Install
@@ -132,12 +134,12 @@ after that, everything is fully offline.
 
 ## 🚀 Usage
 
-| Action                     | Default shortcut          |
-| -------------------------- | ------------------------- |
-| Capture area               | `⌘⇧2` / `Ctrl+Shift+2`    |
-| Capture full screen        | `⌘⇧1` / `Ctrl+Shift+1`    |
-| Capture window             | `⌘⇧3` / `Ctrl+Shift+3`    |
-| Scrolling capture / Record | tray menu or home buttons |
+| Action                                          | Default shortcut                     |
+| ----------------------------------------------- | ------------------------------------ |
+| Capture area                                    | `⌘⇧2` / `Ctrl+Shift+2`               |
+| Capture full screen                             | `⌘⇧1` / `Ctrl+Shift+1`               |
+| Capture window                                  | `⌘⇧3` / `Ctrl+Shift+3`               |
+| Scrolling capture / Record area, screen, window | tray menu, shortcuts or home buttons |
 
 In the editor: `V` select · `A` arrow · `L` line · `P` pen · `R` rectangle · `T` text ·
 `H` highlighter · `S` step marker · `B` blur · `O` lasso · `W` smart cut ·
