@@ -65,6 +65,12 @@ Snapkit runs OCR **locally**, finds the sensitive bits, and blurs them before yo
 - Resolution presets (native / 1440p / 1080p / 720p), 30 or 60 fps
 - System audio (macOS 13+, Windows) and/or microphone
 
+**Edit**
+
+- Trim, resize (1080p/720p/480p), compress (quality or target size), convert to
+  MP4 / WebM / GIF, mute — every recording opens in the editor; any video via
+  tray → Edit Video… or drag & drop.
+
 **Export**
 
 - Copy to clipboard · **styled copy** (padded gradient backdrop: Emerald/Graphite/Steel/Paper) ·
@@ -148,9 +154,16 @@ In the editor: `V` select · `A` arrow · `L` line · `P` pen · `R` rectangle �
 `H` highlighter · `S` step marker · `B` blur · `O` lasso · `W` smart cut ·
 `⌘Z`/`⇧⌘Z` undo/redo · `⌘C` copy · `⇧⌘C` styled copy · `⌘S` save.
 
+In the video editor: `I` / `O` set in/out at the playhead, `[` / `]` nudge the nearer
+handle by one frame, `Space` play/pause.
+
 Typical flow: `⌘⇧2` → drag → annotate → **Auto-redact** (shield button) → review the dashed
 regions (click one to exclude it) → **Blur N** → `⌘C` → paste. Done, and nothing sensitive
 made the trip.
+
+Finished recordings land in `~/Library/Application Support/snapkit/recordings`
+(`%APPDATA%/snapkit/recordings` on Windows, `~/.config/snapkit/recordings` on Linux) and
+are kept for **7 days** — export the ones you want to keep before then.
 
 ## 🔬 Under the hood
 
@@ -171,6 +184,7 @@ src/
 | OCR          | Tesseract.js — worker/WASM/language packs self-hosted                                  |
 | Segmentation | @imgly/background-removal — ONNX, self-hosted, quantized model                         |
 | Recording    | getDisplayMedia → MediaRecorder; post-processing via bundled ffmpeg (setup-ffmpeg.mjs) |
+| Video editor | app:// range streaming → `<video>`; ffmpeg stream-copy / transcode / palettegen        |
 | Persistence  | electron-store                                                                         |
 | Packaging    | electron-builder (dmg/zip, NSIS, AppImage/deb) + electron-updater                      |
 
