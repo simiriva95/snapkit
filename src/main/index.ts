@@ -8,6 +8,7 @@ import { getPrefs, registerPrefsIpc, type ShortcutField } from './prefs'
 import { registerLicenseIpc } from './license'
 import { APP_URL, registerAppScheme, serveApp } from './protocol'
 import { registerRecorderIpc, setupDisplayMediaHandler } from './recorder'
+import { initVideo, pickAndOpenVideo } from './video'
 import { registerShortcut, unregisterShortcuts } from './shortcuts'
 import { applyLaunchAtLogin, launchedAtLogin } from './loginItem'
 import { initAutoUpdate } from './updater'
@@ -135,7 +136,8 @@ if (!gotLock) {
     }
     initCapture(host)
     registerExportIpc()
-    registerRecorderIpc(host)
+    registerRecorderIpc()
+    initVideo()
     setupDisplayMediaHandler()
     initOcrIndex()
     initHistory()
@@ -192,6 +194,7 @@ if (!gotLock) {
         recordArea: handlers.recordShortcut,
         recordScreen: handlers.recordScreenShortcut,
         recordWindow: handlers.recordWindowShortcut,
+        editVideo: () => void pickAndOpenVideo(),
         clipboardHistory: () => openHistoryPanel(),
         quit: () => app.quit()
       },
