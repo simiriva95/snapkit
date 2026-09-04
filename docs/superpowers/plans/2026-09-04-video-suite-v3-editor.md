@@ -168,8 +168,8 @@ describe('planExport', () => {
   it('gif: fps and width capped at the source width', () => {
     const p = planExport({ ...base, container: 'gif', gifFps: 10, gifMaxWidth: 4000, inSec: 1, outSec: 4 }, meta, 'in.mp4', 'out.gif')
     expect(p.kind).toBe('gif')
-    expect(p.args[3]).toBe('in.mp4')
-    expect(p.args[5]).toContain('fps=10,scale=1920:-1:flags=lanczos')
+    expect(p.args.slice(0, 6)).toEqual(['-ss', '1', '-to', '4', '-i', 'in.mp4'])
+    expect(p.args[p.args.indexOf('-vf') + 1]).toContain('fps=10,scale=1920:-1:flags=lanczos')
     expect(p.args.at(-1)).toBe('out.gif')
   })
   it('transcode: quality mode, scaled, muted, trimmed', () => {
