@@ -78,7 +78,8 @@ export const DEFAULT_CAPTURE_SHORTCUT = 'CommandOrControl+Shift+2'
 export const DEFAULT_HISTORY_SHORTCUT = 'CommandOrControl+Shift+V'
 
 /** Capture entry points. */
-export type CaptureMode = 'area' | 'fullscreen' | 'window' | 'scrolling' | 'record'
+export type CaptureMode =
+  'area' | 'fullscreen' | 'window' | 'scrolling' | 'record' | 'record-screen' | 'record-window'
 
 /** What a floating control bar is controlling. */
 export type ControlMode = 'scroll' | 'record'

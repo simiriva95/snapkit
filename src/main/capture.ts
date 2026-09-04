@@ -61,6 +61,7 @@ interface AreaSession {
 interface PickerSession {
   picker: BrowserWindow
   restoreMain: boolean
+  purpose: 'capture' | 'record'
 }
 
 /** A running scrolling-capture: periodic region grabs while the user scrolls. */
@@ -120,6 +121,12 @@ export function startCapture(kind: CaptureMode, host: EditorHost): void {
       break
     case 'record':
       void startAreaCapture(host, 'record')
+      break
+    case 'record-screen':
+      void startScreenRecording(host)
+      break
+    case 'record-window':
+      void startWindowCapture(host, 'record')
       break
     default:
       void startAreaCapture(host)
@@ -258,7 +265,21 @@ export async function startFullscreenCapture(host: EditorHost): Promise<void> {
   }
 }
 
-export async function startWindowCapture(host: EditorHost): Promise<void> {
+/** Record the display under the cursor; no selection UI. */
+export async function startScreenRecording(host: EditorHost): Promise<void> {
+  if (busy) return
+  busy = true
+  const prep = await prepare(host)
+  busy = false
+  if (!prep) return
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+  startRecording({ source: 'screen', display })
+}
+
+export async function startWindowCapture(
+  host: EditorHost,
+  purpose: 'capture' | 'record' = 'capture'
+): Promise<void> {
   if (busy) return
   busy = true
 
@@ -292,7 +313,7 @@ export async function startWindowCapture(host: EditorHost): Promise<void> {
         busy = false
       }
     })
-    pickerSession = { picker, restoreMain: prep.restoreMain }
+    pickerSession = { picker, restoreMain: prep.restoreMain, purpose }
   } catch (err) {
     fail(err, prep.restoreMain, host)
   }
@@ -300,10 +321,18 @@ export async function startWindowCapture(host: EditorHost): Promise<void> {
 
 async function finishWindowPick(id: string, host: EditorHost): Promise<void> {
   if (!pickerSession) return
-  const { picker } = pickerSession
+  const { picker, purpose } = pickerSession
   pickerSession = null
   picker.destroy()
   busy = false
+
+  if (purpose === 'record') {
+    // The recorder captures the window live via its source id; the display only
+    // decides where the control bar goes.
+    const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+    startRecording({ source: 'window', display, sourceId: id })
+    return
+  }
 
   try {
     // Re-grab the chosen window at high resolution.
