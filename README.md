@@ -161,9 +161,13 @@ Typical flow: `⌘⇧2` → drag → annotate → **Auto-redact** (shield button
 regions (click one to exclude it) → **Blur N** → `⌘C` → paste. Done, and nothing sensitive
 made the trip.
 
-Finished recordings land in `~/Library/Application Support/snapkit/recordings`
-(`%APPDATA%/snapkit/recordings` on Windows, `~/.config/snapkit/recordings` on Linux) and
-are kept for **7 days** — export the ones you want to keep before then.
+Finished recordings land in `~/Library/Application Support/Snapkit/recordings`
+(`%APPDATA%\Snapkit\recordings` on Windows, `~/.config/Snapkit/recordings` on Linux) and
+are kept for **7 days** — export the ones you want to keep before then. The folder is
+named after the product, so `npm run dev` uses the lowercase `snapkit` one instead.
+
+The video editor plays what Chromium can decode: MP4/M4V, WebM and MOV. `.mkv` is not
+supported — remux it to MP4 first.
 
 ## 🔬 Under the hood
 
