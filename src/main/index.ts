@@ -6,7 +6,7 @@ import { initCapture, startCapture, type EditorHost } from './capture'
 import { registerExportIpc } from './export'
 import { getPrefs, registerPrefsIpc, type ShortcutField } from './prefs'
 import { registerLicenseIpc } from './license'
-import { APP_URL, registerAppScheme, serveRenderer } from './protocol'
+import { APP_URL, registerAppScheme, serveApp } from './protocol'
 import { registerRecorderIpc, setupDisplayMediaHandler } from './recorder'
 import { registerShortcut, unregisterShortcuts } from './shortcuts'
 import { applyLaunchAtLogin, launchedAtLogin } from './loginItem'
@@ -118,7 +118,7 @@ if (!gotLock) {
     if (!app.isPackaged && process.platform === 'darwin') {
       app.dock?.setIcon(join(app.getAppPath(), 'build/icon.png'))
     }
-    if (!RENDERER_DEV_URL) serveRenderer()
+    serveApp()
     applyProductionCsp()
     registerIpc()
     registerLicenseIpc()
