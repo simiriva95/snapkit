@@ -20,4 +20,24 @@ describe('normalizePrefs', () => {
     expect(p.recordScreenShortcut).toBe('CommandOrControl+Shift+9')
     expect(p.recordWindowShortcut).toBe('CommandOrControl+Shift+0')
   })
+  it('clamps an unknown resolution preset to native', () => {
+    const stored = { ...DEFAULT_PREFS, recordResolution: 999 } as unknown as Prefs
+    expect(normalizePrefs(stored).recordResolution).toBe('native')
+  })
+  it('rejects a stringified resolution preset (electron-store JSON round-trip)', () => {
+    const stored = { ...DEFAULT_PREFS, recordResolution: '1080' } as unknown as Prefs
+    expect(normalizePrefs(stored).recordResolution).toBe('native')
+  })
+  it('keeps the valid resolution presets', () => {
+    for (const r of ['native', 1440, 1080, 720] as const) {
+      expect(normalizePrefs({ ...DEFAULT_PREFS, recordResolution: r }).recordResolution).toBe(r)
+    }
+  })
+  it('clamps an unsupported frame rate to 30', () => {
+    const stored = { ...DEFAULT_PREFS, recordFps: 24 } as unknown as Prefs
+    expect(normalizePrefs(stored).recordFps).toBe(30)
+  })
+  it('keeps 60 fps', () => {
+    expect(normalizePrefs({ ...DEFAULT_PREFS, recordFps: 60 }).recordFps).toBe(60)
+  })
 })

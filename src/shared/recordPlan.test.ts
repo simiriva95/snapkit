@@ -18,6 +18,9 @@ describe('outputSize', () => {
   it('never upscales', () => {
     expect(outputSize({ width: 1280, height: 720 }, 1080)).toEqual({ width: 1280, height: 720 })
   })
+  it('fits 4K into the 1440 box', () => {
+    expect(outputSize({ width: 3840, height: 2160 }, 1440)).toEqual({ width: 2560, height: 1440 })
+  })
   it('never returns less than 2x2', () => {
     expect(outputSize({ width: 1, height: 1 }, 720)).toEqual({ width: 2, height: 2 })
   })
@@ -41,35 +44,60 @@ describe('videoBitrate', () => {
     expect(videoBitrate('native', 60)).toBe(25_000_000)
     expect(videoBitrate(720, 30)).toBe(5_000_000)
   })
+  it('derives the bitrate from the exact output size when it is known', () => {
+    // 1920x1080x30 x 0.1 bpp = 6.22 Mbps, under the 8 Mbps table value
+    expect(videoBitrate(1080, 30, { width: 1920, height: 1080 })).toBe(6_220_800)
+    expect(videoBitrate(720, 60, { width: 1280, height: 720 })).toBe(5_529_600)
+  })
+  it('never goes below 1 Mbps for a tiny region', () => {
+    expect(videoBitrate('native', 30, { width: 400, height: 300 })).toBe(1_000_000)
+  })
+  it('never exceeds the preset table value', () => {
+    expect(videoBitrate('native', 60, { width: 3840, height: 2160 })).toBe(25_000_000)
+  })
 })
 
 describe('pickMimeType', () => {
   it('prefers mp4 with avc1+aac, then avc1, then plain mp4', () => {
     const only = (ok: string) => (m: string) => m === ok
-    expect(pickMimeType('mp4', only('video/mp4;codecs=avc1,mp4a.40.2'))).toEqual({
+    expect(pickMimeType('mp4', only('video/mp4;codecs=avc1,mp4a.40.2'), true)).toEqual({
       mimeType: 'video/mp4;codecs=avc1,mp4a.40.2',
       ext: 'mp4'
     })
-    expect(pickMimeType('mp4', only('video/mp4;codecs=avc1'))).toEqual({
+    expect(pickMimeType('mp4', only('video/mp4;codecs=avc1'), true)).toEqual({
       mimeType: 'video/mp4;codecs=avc1',
       ext: 'mp4'
     })
-    expect(pickMimeType('mp4', only('video/mp4'))).toEqual({ mimeType: 'video/mp4', ext: 'mp4' })
+    expect(pickMimeType('mp4', only('video/mp4'), true)).toEqual({
+      mimeType: 'video/mp4',
+      ext: 'mp4'
+    })
   })
   it('falls back to webm when no mp4 flavour is supported', () => {
     const webmOnly = (m: string) => m.startsWith('video/webm')
-    expect(pickMimeType('mp4', webmOnly)).toEqual({
+    expect(pickMimeType('mp4', webmOnly, true)).toEqual({
       mimeType: 'video/webm;codecs=vp9,opus',
       ext: 'webm'
     })
   })
   it('webm prefers vp9+opus, then plain webm', () => {
-    expect(pickMimeType('webm', (m) => m === 'video/webm')).toEqual({
+    expect(pickMimeType('webm', (m) => m === 'video/webm', true)).toEqual({
       mimeType: 'video/webm',
       ext: 'webm'
     })
   })
+  it('leaves the audio codec out of the mime when there is no audio track', () => {
+    const only = (ok: string) => (m: string) => m === ok
+    expect(pickMimeType('mp4', only('video/mp4;codecs=avc1'), false)).toEqual({
+      mimeType: 'video/mp4;codecs=avc1',
+      ext: 'mp4'
+    })
+    expect(pickMimeType('webm', (m) => m === 'video/webm;codecs=vp9', false)).toEqual({
+      mimeType: 'video/webm;codecs=vp9',
+      ext: 'webm'
+    })
+  })
   it('returns null when nothing is supported', () => {
-    expect(pickMimeType('mp4', () => false)).toBeNull()
+    expect(pickMimeType('mp4', () => false, true)).toBeNull()
   })
 })

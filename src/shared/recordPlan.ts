@@ -42,23 +42,44 @@ const MBPS: Record<RecordResolution, Record<RecordFps, number>> = {
   720: { 30: 5, 60: 8 }
 }
 
-export function videoBitrate(resolution: RecordResolution, fps: RecordFps): number {
-  return MBPS[resolution][fps] * 1_000_000
+/** Bits per pixel per frame — the table above in pixel terms, tuned for screen content. */
+const BITS_PER_PIXEL = 0.1
+
+/**
+ * Bitrate for the encoder. Without `output` the preset table decides (the
+ * screen/window path never learns the real captured size). The area path knows
+ * its canvas exactly, so scale by pixel count instead of paying 16 Mbps for a
+ * 400x300 region — clamped to 1 Mbps min and the preset table as the ceiling.
+ */
+export function videoBitrate(resolution: RecordResolution, fps: RecordFps, output?: Size): number {
+  const table = MBPS[resolution][fps] * 1_000_000
+  if (!output) return table
+  const bpp = BITS_PER_PIXEL
+  return Math.min(table, Math.max(1_000_000, Math.round(output.width * output.height * fps * bpp)))
 }
 
-const CANDIDATES: Record<RecordFormat, string[]> = {
-  mp4: ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4'],
-  webm: ['video/webm;codecs=vp9,opus', 'video/webm']
+// Keyed by audio presence: naming an audio codec in the mime with no audio
+// track makes some Chromium builds reject the MediaRecorder outright.
+const CANDIDATES: Record<RecordFormat, Record<'audio' | 'silent', string[]>> = {
+  mp4: {
+    audio: ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4'],
+    silent: ['video/mp4;codecs=avc1', 'video/mp4']
+  },
+  webm: {
+    audio: ['video/webm;codecs=vp9,opus', 'video/webm'],
+    silent: ['video/webm;codecs=vp9', 'video/webm']
+  }
 }
 
 /** First supported container for the wanted format; mp4 falls back to webm. */
 export function pickMimeType(
   format: RecordFormat,
-  isSupported: (mime: string) => boolean
+  isSupported: (mime: string) => boolean,
+  hasAudio: boolean
 ): { mimeType: string; ext: RecordFormat } | null {
   const order: RecordFormat[] = format === 'mp4' ? ['mp4', 'webm'] : ['webm']
   for (const ext of order) {
-    const mimeType = CANDIDATES[ext].find(isSupported)
+    const mimeType = CANDIDATES[ext][hasAudio ? 'audio' : 'silent'].find(isSupported)
     if (mimeType) return { mimeType, ext }
   }
   return null

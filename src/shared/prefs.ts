@@ -94,8 +94,15 @@ export type PrefsSetResult = { ok: true; prefs: Prefs } | { ok: false; error: st
  * Fill gaps from older stores and migrate removed values. 0.4.x could store
  * recordFormat 'gif'; GIF is now an export of the video editor, not a recording format.
  */
+const RESOLUTIONS: RecordResolution[] = ['native', 1440, 1080, 720]
+const FPS: RecordFps[] = [30, 60]
+
 export function normalizePrefs(raw: Prefs): Prefs {
   const p: Prefs = { ...DEFAULT_PREFS, ...raw }
   if (p.recordFormat !== 'mp4' && p.recordFormat !== 'webm') p.recordFormat = 'mp4'
+  // A stale or hand-edited store must not index the bitrate/box tables with a
+  // value that isn't there (undefined bitrate → MediaRecorder throws).
+  if (!RESOLUTIONS.includes(p.recordResolution)) p.recordResolution = 'native'
+  if (!FPS.includes(p.recordFps)) p.recordFps = 30
   return p
 }

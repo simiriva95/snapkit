@@ -1,5 +1,11 @@
 import type { Rect, RecordJob } from '@shared/ipc'
-import { outputSize, pickMimeType, RESOLUTION_BOX, videoBitrate } from '@shared/recordPlan'
+import {
+  outputSize,
+  pickMimeType,
+  RESOLUTION_BOX,
+  videoBitrate,
+  type Size
+} from '@shared/recordPlan'
 
 /**
  * Hidden recorder page. Main picks the source (display or window) in its
@@ -74,10 +80,14 @@ async function record(job: RecordJob): Promise<void> {
     })
 
     let videoTrack = screenTrack
+    // Area only: the canvas size is the exact output size, so the bitrate can
+    // be derived from it instead of the preset table.
+    let canvasSize: Size | undefined
     if (job.source === 'area' && job.rect) {
       const crop = await cropToCanvas(display, job, job.rect)
       videoTrack = crop.track
       stopCanvas = crop.stop
+      canvasSize = crop.size
     }
 
     const systemTrack = display.getAudioTracks()[0]
@@ -89,12 +99,16 @@ async function record(job: RecordJob): Promise<void> {
     }
     const stream = new MediaStream(audioTrack ? [videoTrack, audioTrack] : [videoTrack])
 
-    const mime = pickMimeType(job.format, (m) => MediaRecorder.isTypeSupported(m))
+    const mime = pickMimeType(
+      job.format,
+      (m) => MediaRecorder.isTypeSupported(m),
+      audioTrack !== undefined
+    )
     if (!mime) throw new Error('MediaRecorder supports neither mp4 nor webm here')
 
     const recorder = new MediaRecorder(stream, {
       mimeType: mime.mimeType,
-      videoBitsPerSecond: videoBitrate(job.resolution, job.fps),
+      videoBitsPerSecond: videoBitrate(job.resolution, job.fps, canvasSize),
       audioBitsPerSecond: 128_000
     })
     const chunks: Blob[] = []
@@ -128,7 +142,7 @@ async function cropToCanvas(
   display: MediaStream,
   job: RecordJob,
   rect: Rect
-): Promise<{ track: MediaStreamTrack; stop: () => void }> {
+): Promise<{ track: MediaStreamTrack; stop: () => void; size: Size }> {
   const video = document.createElement('video')
   video.srcObject = display
   video.muted = true
@@ -157,7 +171,7 @@ async function cropToCanvas(
   draw()
 
   const track = canvas.captureStream(job.fps).getVideoTracks()[0]
-  return { track, stop: () => cancelAnimationFrame(raf) }
+  return { track, stop: () => cancelAnimationFrame(raf), size: out }
 }
 
 /** One audio track out of up to two: pass-through for one source, mixed for two. */
