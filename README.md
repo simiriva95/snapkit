@@ -1,218 +1,233 @@
-<div align="center">
-  <img src="build/icon.png" width="128" alt="Snapkit icon" />
+<p align="center">
+  <img src="build/icon.png" width="112" alt="Snapkit icon" />
+</p>
 
-# Snapkit
+<h1 align="center">Snapkit</h1>
 
-**Capture. Redact. Ship — safely.**
+<p align="center"><em>A developer-first screenshot, recording and annotation tool that finds the secrets in your screenshot and blurs them — entirely on your machine.</em></p>
 
-A developer-first, cross-platform screenshot & screen-recording tool with
-**local auto-redaction of secrets**. One click and your screenshot is safe to share —
-no email addresses, no API keys, no tokens leaking into Slack threads.
+<p align="center">
+  <img alt="Electron" src="https://img.shields.io/badge/Electron-43-47848F?logo=electron&logoColor=white" />
+  <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" />
+  <img alt="Platform" src="https://img.shields.io/badge/platform-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-2ea44f" />
+  <img alt="Offline" src="https://img.shields.io/badge/cloud-none%2C%20ever-2ea44f" />
+</p>
 
-**Everything runs on your machine. Your screenshots never leave your device.**
+<p align="center">
+  <a href="../../releases">Download</a> ·
+  <a href="#getting-started">Install</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="ROADMAP.md">Roadmap</a>
+</p>
 
-<a href="../../releases">Download</a> ·
-<a href="#-install">Install</a> ·
-<a href="#-usage">Usage</a> ·
-<a href="#-under-the-hood">Under the hood</a> ·
-<a href="ROADMAP.md">Roadmap</a>
+<p align="center"><img src="docs/screenshots/hero.png" width="820" alt="hero shot — the editor open on a terminal screenshot with dashed auto-redaction regions proposed over an API key, 1280px wide"></p>
 
-![platforms](https://img.shields.io/badge/platform-macOS%20·%20Windows%20·%20Linux-2ea44f)
-![privacy](https://img.shields.io/badge/cloud-none%2C%20ever-2ea44f)
-![electron](https://img.shields.io/badge/electron-43-47848F)
-
-</div>
-
----
-
-## Why Snapkit
-
-Every screenshot tool can draw an arrow. Snapkit is built around a different problem:
-**screenshots leak secrets**. Terminal output with an `AWS_SECRET_KEY`, a bug report with a
-JWT in the network tab, a config file with someone's email — pasted in a public channel.
-
-Snapkit runs OCR **locally**, finds the sensitive bits, and blurs them before you share:
-
-- **Auto-redaction** — local Tesseract OCR + pattern matching finds emails, JWTs, AWS/GitHub/
-  Slack/Stripe/Google/OpenAI-style keys, IPs, `Bearer` tokens, PEM private-key headers and
-  `password:`/`secret=` assignments — even when they span multiple words. You review the
-  proposed regions, click once, they're pixelated.
-- **Subject extraction** — iPhone-style: lift a subject out of a screenshot as a transparent
-  sticker, powered by ONNX segmentation running **on-device**.
-- **No cloud, no account, no telemetry** — the OCR models, the segmentation model, the fonts:
-  everything ships with the app. Airplane mode changes nothing.
+Every screenshot tool can draw an arrow. Snapkit is built around a different problem: screenshots
+leak secrets. Terminal output with an `AWS_SECRET_KEY`, a bug report with a JWT in the network tab,
+a config file with someone's email — pasted straight into a public channel. Snapkit runs OCR
+locally, matches the sensitive bits against a tested pattern set, and pixelates them before you
+share. No cloud, no account, no telemetry: the OCR models, the segmentation model and the fonts all
+ship with the app, so airplane mode changes nothing.
 
 ## Features
 
-**Capture**
+- **Local auto-redaction** — Tesseract OCR on-device plus a pattern set covering JWTs, AWS/Google/
+  GitHub/Slack/Stripe/`sk-` keys, emails and IPv4, with a second line-level pass for secrets that
+  span words (`Bearer …`, `-----BEGIN PRIVATE KEY-----`, `password:`/`client_secret=`). You review
+  the proposed regions, deselect any false positive, then blur in one click.
+- **Capture that matches what you saw** — the screen is grabbed _before_ the overlay opens, so you
+  select on a frozen frame; area (simultaneous overlays on every display), full screen, single
+  window with a live-thumbnail picker, and scrolling capture that stitches frames as you scroll.
+- **Eleven annotation tools, keyboard-first** — arrow, line, freehand pen, rectangle, text,
+  highlighter, auto-numbered step markers, pixelate blur, plus lasso (copy a free-form selection
+  with transparency) and smart cut (copy just the subject via on-device ONNX segmentation).
+- **Screen recording** — area, full screen or a single window to **MP4** (H.264 + AAC) or WebM,
+  up to 5 min; native / 1440p / 1080p / 720p presets at 30 or 60 fps; system audio (macOS 13+,
+  Windows) and/or microphone. Press the shortcut again, the control bar or the tray to stop.
+- **Replay buffer** — keep the last 30 s – 5 min of your screen in a background buffer and save it
+  as a clip with `⌘⇧8` in about two seconds: for games, demos, and the bug you only notice after it
+  happened. Clips land in `Movies/Snapkit Clips` (`Videos/…` elsewhere, configurable); the buffer
+  restarts itself after sleep or display changes.
+- **Video editor** — every recording opens in it; any video via tray → _Edit Video…_ or drag & drop.
+  Trim on a filmstrip timeline, resize (1080p/720p/480p), compress (quality or target size),
+  convert to MP4 / WebM / GIF, mute. An untouched trim exports instantly as a stream copy.
+- **Clipboard history** — a Win+V-style panel with search, arrow-key navigation, pinning and
+  optional auto-paste; image entries are OCR'd, so searching their _text_ finds the screenshot.
+- **Styled export** — copy to clipboard, or styled copy onto a padded gradient backdrop
+  (Emerald, Graphite, Steel, Paper), or save as PNG/JPG.
+- **Nothing leaves the device** — no telemetry, no crash reporting, no account. The only outbound
+  request a packaged build can make is the GitHub Releases update check, and it fails silently
+  offline.
+- **Tested pure cores** — undo/redo history, redaction patterns, scroll stitching, bundle swap and
+  license crypto are plain functions with Vitest suites; CI runs them on macOS, Windows and Linux
+  before every release build.
 
-- Area (multi-display simultaneous overlays, frozen-frame WYSIWYG), full screen, single window
-  (picker with live thumbnails), **scrolling capture** (you scroll, frames get stitched into
-  one tall image)
-- Global shortcuts, all configurable · capture flash feedback · tray-resident
+<p align="center"><img src="docs/screenshots/redaction-review.png" width="820" alt="the redaction review step — dashed regions labelled &quot;JWT&quot;, &quot;AWS access key&quot;, &quot;Email address&quot; over a terminal, with the &quot;Blur N&quot; button visible"></p>
 
-**Annotate**
+## Tech stack
 
-- Arrow, line, freehand pen, rectangle, text, Paint-style highlighter, step markers (auto-numbered),
-  pixelate blur
-- **Lasso**: free-form select → copy with transparency · **Smart cut**: lasso around a subject →
-  segmentation copies just the subject
-- Serializable undo/redo, keyboard-first (one key per tool)
+| Layer        | Choice                                                                                                       |
+| ------------ | ------------------------------------------------------------------------------------------------------------ |
+| Shell        | Electron 43 + electron-vite 5 (strict process separation, `contextBridge`, no `nodeIntegration`)             |
+| UI           | React 19 · Tailwind CSS 4 · Zustand 5 · Radix Slot + lucide-react                                            |
+| Canvas       | Konva 10 / react-konva                                                                                       |
+| OCR          | tesseract.js 7 — worker, WASM core and language packs self-hosted                                            |
+| Segmentation | @imgly/background-removal 1.7 — quantized ONNX model, self-hosted                                            |
+| Recording    | `getDisplayMedia` → MediaRecorder (H.264/AAC, hardware encoders), canvas crop for areas                      |
+| Video        | bundled static **ffmpeg 9.0.1** (GPLv3, separate process) — remux, stream-copy trim, transcode, GIF palettes |
+| Persistence  | electron-store 11                                                                                            |
+| Packaging    | electron-builder 26 (dmg/zip · NSIS · AppImage/deb) + electron-updater                                       |
+| Tooling      | TypeScript 5.9 · Vitest 4 · ESLint 9 (flat config) · Prettier                                                |
 
-**Record**
+## Getting started
 
-- Region recording → **WebM** (up to 5 min) or **GIF** (up to 30 s), saved wherever you want
+### Install a release
 
-**Export**
-
-- Copy to clipboard · **styled copy** (padded gradient backdrop: Emerald/Graphite/Steel/Paper) ·
-  save PNG/JPG · toast confirmations
-
-**Preferences**
-
-- Shortcuts, dark/light/system theme, OCR languages (English, Italiano, Deutsch, Français,
-  Español — bundled), export folder & format, recording format, auto-redact after capture,
-  start at system start (launches silently in the tray)
-
-## 📦 Install
-
-### macOS (Apple Silicon)
-
-**Don't download the `.dmg` from Releases.** Snapkit isn't notarized by Apple yet, and macOS quarantines
-everything a browser downloads: Gatekeeper then rejects the app with **“Snapkit is damaged”** (and since
-macOS 15 right-click → Open no longer bypasses it). Terminal downloads are not quarantined, so install
-one of these two ways instead:
-
-**1. Install script** (recommended) — downloads the latest release and puts it in `/Applications`:
+**macOS (Apple Silicon) — do not download the `.dmg`.** Snapkit is not notarized yet, and macOS
+quarantines everything a browser downloads, so Gatekeeper rejects the app with _"Snapkit is
+damaged"_ (since macOS 15, right-click → Open no longer bypasses it). Terminal downloads are not
+quarantined, so use one of these instead:
 
 ```bash
+# 1. install script — fetches the latest release into /Applications
 curl -fsSL https://raw.githubusercontent.com/simiriva95/snapkit/main/scripts/install.sh | bash
-```
 
-**2. Homebrew** — this repo doubles as a tap. The `--no-quarantine` flag is required because Homebrew
-quarantines cask downloads by default, which would hit the same Gatekeeper block:
-
-```bash
+# 2. Homebrew — this repo doubles as the tap
 brew tap simiriva95/snapkit https://github.com/simiriva95/snapkit
 brew install --cask --no-quarantine snapkit
 ```
 
-Already stuck with a “damaged” copy from the `.dmg`? Fix it with `xattr -cr /Applications/Snapkit.app`.
+Already stuck with a "damaged" copy from the `.dmg`? Run `xattr -cr /Applications/Snapkit.app`.
 
-### Windows & Linux
+| OS            | Artifact                               | Note                                                      |
+| ------------- | -------------------------------------- | --------------------------------------------------------- |
+| macOS (arm64) | `Snapkit-x.y.z-arm64-mac.zip` / `.dmg` | ad-hoc signed, not notarized — install via script or brew |
+| Windows (x64) | `Snapkit Setup x.y.z.exe`              | unsigned: SmartScreen warns — **More info → Run anyway**  |
+| Linux         | `Snapkit-x.y.z.AppImage` / `.deb`      | `chmod +x` the AppImage and run                           |
 
-Grab the latest installer from [**Releases**](../../releases):
-
-| OS            | File                              | Note                                                         |
-| ------------- | --------------------------------- | ------------------------------------------------------------ |
-| Windows (x64) | `Snapkit Setup x.y.z.exe`         | SmartScreen will warn (unsigned): **More info → Run anyway** |
-| Linux         | `Snapkit-x.y.z.AppImage` / `.deb` | `chmod +x` the AppImage and run                              |
-
-> macOS asks for **Screen Recording** permission on first capture
-> (System Settings → Privacy & Security), then requires an app relaunch — that's an OS rule.
+> On first capture macOS asks for **Screen Recording** permission (System Settings → Privacy &
+> Security) and then requires a relaunch. That is an OS rule, not a Snapkit one.
 
 ### Build from source
 
-Requirements: **Node.js ≥ 20.19** and npm.
+Requires Node.js ≥ 20.19 (CI builds on Node 22) and npm.
 
 ```bash
 git clone https://github.com/simiriva95/snapkit.git
 cd snapkit
 npm install
-# if npm skipped electron's binary download (some environments do):
+# some environments skip electron's postinstall binary download:
 node node_modules/electron/install.js
 
-npm run dev            # run with hot reload
-npm run package        # installer for YOUR OS → dist/
-npm run package:winmac # .dmg + windows .exe in one go (from macOS)
+npm run dev             # electron-vite dev, hot reload
+npm run build           # compile main + preload + renderer into out/
+npm run package         # installer for your OS → dist/
+npm run package:winmac  # .dmg + Windows .exe in one pass (from macOS)
+npm run package:all     # mac + Windows + Linux
 ```
 
-First run downloads the on-device segmentation model (~76 MB, one time) into the project —
-after that, everything is fully offline.
+`predev`/`prebuild` run `scripts/setup-ocr.mjs`, `scripts/setup-bgr.mjs` and
+`scripts/setup-ffmpeg.mjs`: they copy the tesseract.js worker/WASM out of `node_modules`, download
+the quantized segmentation model (~40 MB, once) into `src/renderer/public/`, and fetch the static
+ffmpeg binary for your platform (SHA-256 pinned, from the
+[snapkit-ffmpeg](https://github.com/simiriva95/snapkit-ffmpeg) mirror) into `resources/ffmpeg/`.
+All three are idempotent and gitignored; after the first run the build is fully offline.
 
-## 🚀 Usage
+### Development
 
-| Action                     | Default shortcut          |
-| -------------------------- | ------------------------- |
-| Capture area               | `⌘⇧2` / `Ctrl+Shift+2`    |
-| Capture full screen        | `⌘⇧1` / `Ctrl+Shift+1`    |
-| Capture window             | `⌘⇧3` / `Ctrl+Shift+3`    |
-| Scrolling capture / Record | tray menu or home buttons |
+```bash
+npm test          # vitest — redaction, undo/redo, annotations, stitching, license crypto, bundle swap
+npm run typecheck # strict TS, node + web projects
+npm run lint      # eslint flat config
+npm run format    # prettier
+npm run gen:appicon  # regenerate build/icon.png programmatically
+npm run gen:icon     # regenerate the tray template icons
+```
 
-In the editor: `V` select · `A` arrow · `L` line · `P` pen · `R` rectangle · `T` text ·
-`H` highlighter · `S` step marker · `B` blur · `O` lasso · `W` smart cut ·
-`⌘Z`/`⇧⌘Z` undo/redo · `⌘C` copy · `⇧⌘C` styled copy · `⌘S` save.
+Tagging `v*` triggers [`.github/workflows/release.yml`](.github/workflows/release.yml): it
+pre-creates a draft GitHub Release, then builds on macOS/Windows/Ubuntu runners (tests and
+typecheck first), publishes the installers as the electron-updater feed, appends the macOS install
+guide to the release notes and bumps `Casks/snapkit.rb` to the new version and SHA.
 
-Typical flow: `⌘⇧2` → drag → annotate → **Auto-redact** (shield button) → review the dashed
-regions (click one to exclude it) → **Blur N** → `⌘C` → paste. Done, and nothing sensitive
-made the trip.
+## Configuration
 
-## 🔬 Under the hood
+There is nothing to configure to run Snapkit — it talks to zero external services and needs no API
+keys. Runtime settings live in Preferences and are persisted by `electron-store`
+([`src/shared/prefs.ts`](src/shared/prefs.ts)): capture/fullscreen/window/scrolling/record/history
+shortcuts, theme (`dark` by default), export folder and format, styled-copy template, OCR languages
+(`eng`, `ita`, `deu`, `fra`, `spa` bundled), recording format / resolution / frame rate / audio,
+replay-buffer length and clips folder, auto-redact after capture, auto-copy, clipboard history and
+auto-paste, and launch at login.
+
+| Action                                          | Default shortcut                                         |
+| ----------------------------------------------- | -------------------------------------------------------- |
+| Capture area / full screen / window / scrolling | `⌘⇧2` · `⌘⇧1` · `⌘⇧3` · `⌘⇧6` (`Ctrl+Shift+…` elsewhere) |
+| Record area / screen / window                   | `⌘⇧7` · `⌘⇧9` · `⌘⇧0` — press again to stop              |
+| Save replay                                     | `⌘⇧8` (buffer on in Preferences)                         |
+| Clipboard history                               | `⌘⇧V`                                                    |
+
+Finished recordings wait in `~/Library/Application Support/Snapkit/recordings`
+(`%APPDATA%\Snapkit\recordings`, `~/.config/Snapkit/recordings`) for **7 days** until you export
+them from the editor. The editor plays what Chromium decodes: MP4/M4V, WebM and MOV — not `.mkv`.
+
+Build-time environment variables (release builds only):
+
+| Variable                                                                                                 | Required | What it does                                                                                                                                        |
+| -------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SNAPKIT_LICENSE_PUBKEY`                                                                                 | No       | Ed25519 public key (PEM) baked into the build to verify offline license keys. Unset → the committed dev key in `scripts/dev-license-keys/` is used. |
+| `CSC_IDENTITY_AUTO_DISCOVERY`                                                                            | No       | Set to `false` by the `package*` scripts and by CI to build unsigned.                                                                               |
+| `CSC_LINK` / `CSC_KEY_PASSWORD`, `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID`, `AZURE_*` | No       | Code-signing and notarization credentials, consumed by electron-builder when present. See [docs/selling.md](docs/selling.md).                       |
+
+> **No API keys exist in this repo.** Key-shaped strings in
+> [`src/shared/redaction.test.ts`](src/shared/redaction.test.ts) (`AKIA…`, `AIza…`, `xoxb-…`,
+> `sk_live_…`, JWTs) are fabricated fixtures for the pattern matcher. Secret-scanner hits on them
+> are false positives.
+
+## How it works
 
 ```
 src/
-  main/       window/tray/shortcuts, capture orchestration, export, prefs,
-              license, auto-update, app:// protocol (serves the packaged renderer)
-  preload/    contextBridge — typed API surface, no nodeIntegration
-  renderer/   React: home, selection overlays, Konva editor, picker,
-              control bar, hidden recorder
-  shared/     typed IPC contract, redaction patterns, prefs/license models
+  main/       windows, tray, global shortcuts, capture orchestration, export,
+              clipboard history, prefs, license, auto-update, app:// protocol
+  preload/    contextBridge — one typed API surface, no nodeIntegration
+  renderer/   React: home, per-display selection overlays, Konva editor,
+              window picker, control bar, history panel, video editor,
+              hidden recorder and replay-buffer windows
+  shared/     typed IPC contract, redaction patterns, prefs & license models,
+              pure video planners (presets, ffmpeg args, replay ring)
 ```
 
-| Concern      | Choice                                                                                 |
-| ------------ | -------------------------------------------------------------------------------------- |
-| Shell        | Electron + electron-vite (strict process separation, sandbox, prod CSP)                |
-| UI           | React 19 · Tailwind CSS v4 · Konva canvas                                              |
-| OCR          | Tesseract.js — worker/WASM/language packs self-hosted                                  |
-| Segmentation | @imgly/background-removal — ONNX, self-hosted, quantized model                         |
-| Recording    | getDisplayMedia → MediaRecorder; post-processing via bundled ffmpeg (setup-ffmpeg.mjs) |
-| Persistence  | electron-store                                                                         |
-| Packaging    | electron-builder (dmg/zip, NSIS, AppImage/deb) + electron-updater                      |
+Five decisions carry most of the design:
 
-Details worth stealing:
+- **Capture-first selection.** The screen is grabbed before any overlay appears, so the user drags
+  on a frozen frame — the selection is WYSIWYG even if the underlying app repaints.
+- **`app://` custom protocol.** Packaged builds serve the renderer over a privileged scheme, so
+  `fetch()`, web workers and absolute paths behave exactly as in dev; `file://` breaks all three.
+- **Two-pass redaction.** A word-level pass catches single-token secrets from the OCR word boxes; a
+  line-level pass re-joins each line, matches multi-word patterns, and maps the char range back to
+  the union of the covered word boxes. Overlapping proposals are deduplicated, larger region wins.
+- **Scroll stitching.** Per-row luminance hashes plus a best-overlap search append only the new rows
+  of each frame; fully overlapping frames are dropped. Declared limits: sticky headers can ghost,
+  and scrolling more than one frame height leaves a seam.
+- **Capture native, post-process with ffmpeg.** Chromium owns screen capture and encoding
+  (permissions, ScreenCaptureKit/WGC, hardware H.264); a bundled ffmpeg is only ever spawned
+  afterwards — to remux, trim, transcode or concatenate. The replay buffer records 10 s segments
+  and, on the hotkey, stream-copies whole segments (never seeking inside one: MediaRecorder writes a
+  single keyframe per segment). Every decision that can be pure — preset sizes, bitrates, export
+  arguments, the ring — is a tested function in `src/shared/`.
 
-- **Capture-first selection**: the screen is grabbed _before_ the overlay opens — you select
-  on a frozen frame, so what you pick is exactly what you get.
-- **`app://` custom protocol**: packaged builds serve the renderer over a privileged scheme so
-  `fetch()`, workers and absolute paths behave exactly like in dev (`file://` breaks them).
-- **Scroll stitching**: per-row luminance hashes + best-overlap search appends only new rows;
-  full-overlap frames are dropped (unit-tested pure functions).
-- **Pure, tested cores**: undo/redo history, redaction patterns, stitching, license crypto —
-  all plain functions with vitest suites (`npm test`).
-- **Offline licensing** (dormant in the free build): Ed25519-signed keys verified against a
-  public key baked at build time — no activation server. See [docs/selling.md](docs/selling.md).
-
-## 🔒 Privacy
-
-- No network calls at runtime. No telemetry, no crash reporting, no account.
-- OCR, segmentation, recording, export: all local.
-- The only outbound connection the app can make is the auto-update check against GitHub
-  Releases in packaged builds — and it fails silently offline.
-
-> **No API keys required — none exist in this repo.** Snapkit talks to zero external
-> services. Any key-looking strings you may spot in `src/shared/redaction.test.ts`
-> (`AIza…`, `AKIA…`, `xoxb-…`, `sk_live_…`, JWTs) are **fabricated test fixtures** for the
-> auto-redaction pattern matcher — they were never real credentials and there is nothing
-> for you to configure or replace. Secret-scanner reports on them are false positives.
-
-## Development
-
-```bash
-npm run dev         # HMR dev session
-npm test            # vitest — history, redaction, stitching, license crypto
-npm run typecheck   # strict TS, main + renderer
-npm run lint        # eslint flat config
-npm run gen:appicon # regenerate build/icon.png (programmatic, no design tools)
-npm run gen:icon    # regenerate the tray template icons
-node scripts/setup-ffmpeg.mjs   # fetch the pinned static ffmpeg for this machine (predev does it too)
-```
-
-CI builds installers for the three OSes on every `v*` tag ([release.yml](.github/workflows/release.yml)).
+Licensing is offline by design: keys are Ed25519 signatures over `{email, orderId}`, verified
+against a public key baked in at build time — no activation server. It is dormant in the current
+build; see [docs/selling.md](docs/selling.md).
 
 ## Roadmap
 
-Cloud share links (opt-in, client-side encrypted), sync, team features, plugin API —
-see [ROADMAP.md](ROADMAP.md) for the phased plan and what was deliberately left out.
+Phase 2 is complete except scrolling-capture polish and the video suite (recorder, replay buffer,
+editor) has landed; the open work is signing/notarization, the storefront and license pipeline,
+then opt-in cloud share links, sync and a plugin API. Full phased
+plan — including what was deliberately rejected (accounts for local features, automatic uploads) —
+in [ROADMAP.md](ROADMAP.md).
 
 ## Third-party binaries
 
@@ -220,12 +235,14 @@ see [ROADMAP.md](ROADMAP.md) for the phased plan and what was deliberately left 
   `--enable-nonfree` component), fetched at build time by `scripts/setup-ffmpeg.mjs` with the
   archive SHA-256 pinned, served from our mirror [snapkit-ffmpeg](https://github.com/simiriva95/snapkit-ffmpeg)
   (byte-identical upstream archives — [Martin Riedl](https://ffmpeg.martin-riedl.de/) for macOS,
-  [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) for Windows/Linux — with provenance and checksums).
-  Executed as a separate process for video trim/convert/compress — never linked into the app.
-  Source and license: <https://ffmpeg.org/legal.html>.
+  [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) for Windows/Linux — with provenance
+  and checksums). Executed as a separate process, never linked into the app. Source and license:
+  <https://ffmpeg.org/legal.html>.
 
 ## License
 
-Source-available: the code is public to read, build and use personally.
-Commercial licensing/redistribution is reserved while the monetization model settles —
-see [docs/selling.md](docs/selling.md). This may relax later.
+No `LICENSE` file is present in this repository yet, so the terms are not formally declared;
+`package.json` states `SEE LICENSE IN README.md`. The author's stated intent is source-available —
+the code is public to read, build and use personally, while commercial redistribution stays
+reserved while the monetization model settles. Until a `LICENSE` file lands, assume no permission
+beyond that and ask before redistributing.
