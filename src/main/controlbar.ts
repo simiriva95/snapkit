@@ -14,18 +14,22 @@ const HEIGHT = 48
  */
 export function createControlBar(mode: ControlMode, region: Rectangle): BrowserWindow {
   const display = screen.getDisplayMatching(region)
+  // workArea, not bounds: keeps the bar clear of the menu bar / notch and the Dock.
+  // For a screen/window recording the region IS the whole display, so both fit
+  // tests fail and the bar lands at workArea.y + 8 (top, under the menu bar).
+  const area = display.workArea
   const x = Math.round(
     Math.min(
-      Math.max(region.x + region.width / 2 - WIDTH / 2, display.bounds.x + 8),
-      display.bounds.x + display.bounds.width - WIDTH - 8
+      Math.max(region.x + region.width / 2 - WIDTH / 2, area.x + 8),
+      area.x + area.width - WIDTH - 8
     )
   )
   // Below the region; above it if there is no room.
   const below = region.y + region.height + 12
   const y =
-    below + HEIGHT + 8 <= display.bounds.y + display.bounds.height
+    below + HEIGHT + 8 <= area.y + area.height
       ? below
-      : Math.max(region.y - HEIGHT - 12, display.bounds.y + 8)
+      : Math.max(region.y - HEIGHT - 12, area.y + 8)
 
   const win = new BrowserWindow({
     x,

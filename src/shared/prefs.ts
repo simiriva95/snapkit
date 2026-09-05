@@ -1,4 +1,5 @@
 import { DEFAULT_CAPTURE_SHORTCUT, DEFAULT_HISTORY_SHORTCUT } from './ipc'
+import type { RecordFormat, RecordFps, RecordResolution } from './recordPlan'
 
 /** User preferences, persisted by electron-store in the main process. */
 export interface Prefs {
@@ -23,8 +24,19 @@ export interface Prefs {
   autoRedactOnCapture: boolean
   /** OCR languages (tesseract codes). Bundled: eng, ita, deu, fra, spa. */
   ocrLanguages: string[]
-  /** Screen recording output. GIF is capped at 30s, WebM at 5min. */
-  recordFormat: 'webm' | 'gif'
+  /** Screen recording container. MP4 (H.264 + AAC) plays everywhere; WebM (VP9 + Opus) is smaller. */
+  recordFormat: RecordFormat
+  /** Output size preset: max box, aspect preserved, never upscaled. */
+  recordResolution: RecordResolution
+  recordFps: RecordFps
+  /** Mix the microphone into recordings. */
+  recordMic: boolean
+  /** Mix system audio (what you hear) into recordings. */
+  recordSystemAudio: boolean
+  /** Electron accelerator for full-screen recording. */
+  recordScreenShortcut: string
+  /** Electron accelerator for window recording (opens the picker). */
+  recordWindowShortcut: string
   /** Copy each new capture to the OS clipboard automatically. */
   autoCopyOnCapture: boolean
   /** Track everything copied (text + images) in a browsable history. */
@@ -51,7 +63,13 @@ export const DEFAULT_PREFS: Prefs = {
   styledTemplate: 'indigo',
   autoRedactOnCapture: false,
   ocrLanguages: ['eng'],
-  recordFormat: 'webm',
+  recordFormat: 'mp4',
+  recordResolution: 'native',
+  recordFps: 30,
+  recordMic: false,
+  recordSystemAudio: true,
+  recordScreenShortcut: 'CommandOrControl+Shift+9',
+  recordWindowShortcut: 'CommandOrControl+Shift+0',
   autoCopyOnCapture: true,
   clipboardHistory: true,
   historyShortcut: DEFAULT_HISTORY_SHORTCUT,
@@ -71,3 +89,20 @@ export const BUNDLED_OCR_LANGUAGES = [
 
 /** Outcome of a prefs update — shortcut changes can fail to register. */
 export type PrefsSetResult = { ok: true; prefs: Prefs } | { ok: false; error: string; prefs: Prefs }
+
+const RESOLUTIONS: RecordResolution[] = ['native', 1440, 1080, 720]
+const FPS: RecordFps[] = [30, 60]
+
+/**
+ * Fill gaps from older stores and migrate removed values. 0.4.x could store
+ * recordFormat 'gif'; GIF is now an export of the video editor, not a recording format.
+ */
+export function normalizePrefs(raw: Prefs): Prefs {
+  const p: Prefs = { ...DEFAULT_PREFS, ...raw }
+  if (p.recordFormat !== 'mp4' && p.recordFormat !== 'webm') p.recordFormat = 'mp4'
+  // A stale or hand-edited store must not index the bitrate/box tables with a
+  // value that isn't there (undefined bitrate → MediaRecorder throws).
+  if (!RESOLUTIONS.includes(p.recordResolution)) p.recordResolution = 'native'
+  if (!FPS.includes(p.recordFps)) p.recordFps = 30
+  return p
+}

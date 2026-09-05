@@ -217,6 +217,16 @@ Until V3 lands: today's save dialog. Control bar unchanged (timer + Done/Cancel)
 Tray menu gains the two entries; `shortcuts.ts` registers the two new accelerators.
 `gifenc` dependency removed; `recorder/gifenc.d.ts` deleted.
 
+**Landed (2026-09-04)**: `startRecording` now asks for the microphone
+(`systemPreferences.askForMediaAccess('microphone')`) on macOS before starting when
+`recordMic` is on, showing a "Recording without microphone" notification on denial and
+proceeding without it; `electron-builder.yml` carries the required
+`NSMicrophoneUsageDescription` string. The control bar remains visible inside
+screen/window recordings (see ROADMAP "Deferred technical debt"). Deviation from this
+spec: the output container (mp4 vs webm) is chosen in the renderer by `pickMimeType`
+based on `MediaRecorder.isTypeSupported`, not carried explicitly as a `mimeType` field
+on `RecordJob`.
+
 ### V2 — Game clips / replay buffer (M)
 
 **Prefs**

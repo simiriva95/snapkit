@@ -18,7 +18,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }):
   )
 }
 
-function Segmented<T extends string>({
+function Segmented<T extends string | number>({
   value,
   options,
   onChange,
@@ -33,7 +33,7 @@ function Segmented<T extends string>({
     <div role="radiogroup" aria-label={ariaLabel} className="flex rounded-md border p-0.5">
       {options.map((o) => (
         <button
-          key={o.value}
+          key={String(o.value)}
           role="radio"
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
@@ -256,6 +256,22 @@ function PrefsPanel({ onBack }: { onBack: () => void }): React.JSX.Element {
             />
           </Row>
 
+          <Row label="Record screen">
+            <ShortcutRecorder
+              label="Screen recording shortcut"
+              value={prefs.recordScreenShortcut}
+              onRecord={(acc) => patch({ recordScreenShortcut: acc })}
+            />
+          </Row>
+
+          <Row label="Record window">
+            <ShortcutRecorder
+              label="Window recording shortcut"
+              value={prefs.recordWindowShortcut}
+              onRecord={(acc) => patch({ recordWindowShortcut: acc })}
+            />
+          </Row>
+
           <Row label="Clipboard history">
             <ShortcutRecorder
               label="Clipboard history shortcut"
@@ -294,10 +310,52 @@ function PrefsPanel({ onBack }: { onBack: () => void }): React.JSX.Element {
               ariaLabel="Recording format"
               value={prefs.recordFormat}
               options={[
-                { value: 'webm', label: 'WebM (5 min)' },
-                { value: 'gif', label: 'GIF (30 s)' }
+                { value: 'mp4', label: 'MP4' },
+                { value: 'webm', label: 'WebM' }
               ]}
               onChange={(recordFormat) => patch({ recordFormat })}
+            />
+          </Row>
+
+          <Row label="Recording resolution">
+            <Segmented
+              ariaLabel="Recording resolution"
+              value={prefs.recordResolution}
+              options={[
+                { value: 'native', label: 'Native' },
+                { value: 1440, label: '1440p' },
+                { value: 1080, label: '1080p' },
+                { value: 720, label: '720p' }
+              ]}
+              onChange={(recordResolution) => patch({ recordResolution })}
+            />
+          </Row>
+
+          <Row label="Recording frame rate">
+            <Segmented
+              ariaLabel="Recording frame rate"
+              value={prefs.recordFps}
+              options={[
+                { value: 30, label: '30 fps' },
+                { value: 60, label: '60 fps' }
+              ]}
+              onChange={(recordFps) => patch({ recordFps })}
+            />
+          </Row>
+
+          <Row label="Record system audio">
+            <Toggle
+              ariaLabel="Record system audio"
+              checked={prefs.recordSystemAudio}
+              onChange={(recordSystemAudio) => patch({ recordSystemAudio })}
+            />
+          </Row>
+
+          <Row label="Record microphone">
+            <Toggle
+              ariaLabel="Record microphone"
+              checked={prefs.recordMic}
+              onChange={(recordMic) => patch({ recordMic })}
             />
           </Row>
 

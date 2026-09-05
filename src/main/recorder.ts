@@ -4,44 +4,77 @@ import {
   desktopCapturer,
   dialog,
   ipcMain,
+  Notification,
   session as electronSession,
   shell,
+  systemPreferences,
   type Display
 } from 'electron'
-import { writeFile } from 'fs/promises'
+import { rm, writeFile } from 'fs/promises'
+import os from 'os'
 import { join } from 'path'
 import { IpcChannels, type Rect, type RecordJob } from '@shared/ipc'
+import type { RecordFormat } from '@shared/recordPlan'
 import { getPrefs } from './prefs'
 import { createControlBar, sendControlStatus } from './controlbar'
+import { runFfmpeg } from './ffmpeg'
 import { APP_URL } from './protocol'
 import type { EditorHost } from './capture'
 
 const RENDERER_DEV_URL = process.env['ELECTRON_RENDERER_URL']
 
-const WEBM_MAX_SECONDS = 300
-const GIF_MAX_SECONDS = 30
+const MAX_SECONDS = 300
+
+/** What to record. `display` is where the control bar goes and, for area/screen, what is captured. */
+export type RecordTarget =
+  | { source: 'area'; display: Display; rect: Rect }
+  | { source: 'screen'; display: Display }
+  | { source: 'window'; display: Display; sourceId: string }
 
 interface RecordSession {
   recorder: BrowserWindow
   control: BrowserWindow
   timer: NodeJS.Timeout
-  startedAt: number
-  ext: string
   stopping: boolean
 }
 
-let current: RecordSession | null = null
-/** Display the in-flight getDisplayMedia request should receive. */
-let pendingDisplayId: number | null = null
+/**
+ * Can we ask for `audio: 'loopback'` (system audio) at all? Only macOS 13+
+ * (Darwin 22) and Windows. On Linux and macOS ≤ 12 the request either fails or
+ * is ignored, so we silently record without system audio instead.
+ */
+export function systemAudioSupported(): boolean {
+  return (
+    process.platform === 'win32' ||
+    (process.platform === 'darwin' && Number(os.release().split('.')[0]) >= 22)
+  )
+}
 
-/** Route renderer getDisplayMedia() to the right screen without a picker. */
+let current: RecordSession | null = null
+/** What the in-flight getDisplayMedia request should receive (set by startRecording). */
+let pendingSource: { displayId: number; sourceId?: string; audio: boolean } | null = null
+
+/** Route the recorder's getDisplayMedia() to the chosen display or window, no picker. */
 export function setupDisplayMediaHandler(): void {
   electronSession.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+    const pending = pendingSource
+    // No pending job = a getDisplayMedia call we did not initiate: deny it.
+    if (!pending) return callback({})
     desktopCapturer
-      .getSources({ types: ['screen'] })
+      // Thumbnails/icons are pure overhead here — we only need the source handle.
+      .getSources({
+        types: pending.sourceId ? ['window'] : ['screen'],
+        thumbnailSize: { width: 0, height: 0 },
+        fetchWindowIcons: false
+      })
       .then((sources) => {
-        const match = sources.find((s) => s.display_id === String(pendingDisplayId)) ?? sources[0]
-        callback(match ? { video: match } : {})
+        const match = pending.sourceId
+          ? sources.find((s) => s.id === pending.sourceId)
+          : sources.find((s) => s.display_id === String(pending.displayId))
+        // No match: deny rather than record a random screen.
+        if (!match) return callback({})
+        // 'loopback' = system audio. Works on macOS 13+ and Windows (V0 spike).
+        callback(pending.audio ? { video: match, audio: 'loopback' } : { video: match })
       })
       .catch(() => callback({}))
   })
@@ -55,21 +88,56 @@ export function registerRecorderIpc(host: EditorHost): void {
     }
   })
 
-  ipcMain.on(IpcChannels.recordResult, (event, data: ArrayBuffer, ext: string) => {
-    if (!current || current.recorder.webContents.id !== event.sender.id) return
-    const buffer = Buffer.from(data)
-    teardown()
-    void saveRecording(buffer, ext, host)
-  })
+  ipcMain.on(
+    IpcChannels.recordResult,
+    (event, data: ArrayBuffer, ext: RecordFormat, error?: string) => {
+      if (!current || current.recorder.webContents.id !== event.sender.id) return
+      const buffer = Buffer.from(data)
+      teardown()
+      // Nothing was encoded (permission denied, no track, encoder error before
+      // the first chunk): tell the user instead of opening a save dialog for 0 bytes.
+      if (buffer.byteLength === 0) {
+        new Notification({
+          title: 'Recording failed',
+          body: error ?? 'No video data was produced.'
+        }).show()
+        return
+      }
+      void saveRecording(buffer, ext, host)
+    }
+  )
 }
 
-export function startRecording(display: Display, rect: Rect): void {
+export function startRecording(target: RecordTarget): void {
   if (current) return
-  const prefs = getPrefs()
-  const format = prefs.recordFormat
-  const maxSeconds = format === 'gif' ? GIF_MAX_SECONDS : WEBM_MAX_SECONDS
+  void begin(target)
+}
 
-  pendingDisplayId = display.id
+async function begin(target: RecordTarget): Promise<void> {
+  const prefs = getPrefs()
+  let mic = prefs.recordMic
+  if (mic && process.platform === 'darwin') {
+    // First call shows the OS prompt (needs NSMicrophoneUsageDescription in the bundle).
+    mic = await systemPreferences.askForMediaAccess('microphone')
+    if (!mic) {
+      new Notification({
+        title: 'Recording without microphone',
+        body: 'Allow Snapkit in System Settings → Privacy & Security → Microphone to include your voice.'
+      }).show()
+    }
+  }
+  if (current) return
+  const { display } = target
+
+  // Linux and macOS ≤ 12 have no loopback capture: those recordings are
+  // silently made without system audio rather than failing.
+  const systemAudio = prefs.recordSystemAudio && systemAudioSupported()
+
+  pendingSource = {
+    displayId: display.id,
+    sourceId: target.source === 'window' ? target.sourceId : undefined,
+    audio: systemAudio
+  }
 
   const recorder = new BrowserWindow({
     show: false,
@@ -77,22 +145,34 @@ export function startRecording(display: Display, rect: Rect): void {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // The window is hidden but drives the canvas RAF loop for area recordings.
+      backgroundThrottling: false
     }
   })
 
-  const control = createControlBar('record', {
-    x: display.bounds.x + Math.round(rect.x),
-    y: display.bounds.y + Math.round(rect.y),
-    width: Math.round(rect.width),
-    height: Math.round(rect.height)
-  })
+  // Control bar: under the area, or on the recorded display for screen/window.
+  // ponytail: for screen/window the bar is inside the recording — see ROADMAP.
+  const region =
+    target.source === 'area'
+      ? {
+          x: display.bounds.x + Math.round(target.rect.x),
+          y: display.bounds.y + Math.round(target.rect.y),
+          width: Math.round(target.rect.width),
+          height: Math.round(target.rect.height)
+        }
+      : display.bounds
+  const control = createControlBar('record', region)
 
   const job: RecordJob = {
-    rect,
+    source: target.source,
+    rect: target.source === 'area' ? target.rect : undefined,
     displaySize: { width: display.size.width, height: display.size.height },
-    format,
-    maxSeconds
+    format: prefs.recordFormat,
+    resolution: prefs.recordResolution,
+    fps: prefs.recordFps,
+    mic,
+    systemAudio
   }
   recorder.webContents.once('did-finish-load', () => {
     recorder.webContents.send(IpcChannels.recordStart, job)
@@ -108,7 +188,7 @@ export function startRecording(display: Display, rect: Rect): void {
     const mm = String(Math.floor(elapsed / 60)).padStart(2, '0')
     const ss = String(elapsed % 60).padStart(2, '0')
     sendControlStatus(current.control, `${mm}:${ss}`)
-    if (elapsed >= maxSeconds) stopRecording()
+    if (elapsed >= MAX_SECONDS) stopRecording()
   }, 500)
 
   const onDied = (): void => {
@@ -119,24 +199,19 @@ export function startRecording(display: Display, rect: Rect): void {
   recorder.on('closed', onDied)
   control.on('closed', onDied)
 
-  current = {
-    recorder,
-    control,
-    timer,
-    startedAt,
-    ext: format === 'gif' ? 'gif' : 'webm',
-    stopping: false
-  }
+  current = { recorder, control, timer, stopping: false }
 }
 
 function stopRecording(): void {
   if (!current || current.stopping) return
   current.stopping = true
+  const session = current
   // The recorder answers with recordResult; teardown happens there.
   current.recorder.webContents.send(IpcChannels.recordStop)
-  // Safety net: if the renderer never answers, kill the session.
+  // Safety net: if the renderer never answers, kill the session. Compare
+  // identity so a stale timer can never tear down a later recording.
   setTimeout(() => {
-    if (current?.stopping) teardown()
+    if (current === session && session.stopping) teardown()
   }, 15_000)
 }
 
@@ -148,7 +223,7 @@ function teardown(): void {
   if (!current) return
   const { recorder, control, timer } = current
   current = null
-  pendingDisplayId = null
+  pendingSource = null
   clearInterval(timer)
   if (!recorder.isDestroyed()) recorder.destroy()
   if (!control.isDestroyed()) control.destroy()
@@ -156,7 +231,7 @@ function teardown(): void {
 
 const pad2 = (n: number): string => String(n).padStart(2, '0')
 
-async function saveRecording(buffer: Buffer, ext: string, host: EditorHost): Promise<void> {
+async function saveRecording(buffer: Buffer, ext: RecordFormat, host: EditorHost): Promise<void> {
   const d = new Date()
   const name = `Snapkit Recording ${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} at ${pad2(d.getHours())}.${pad2(d.getMinutes())}.${pad2(d.getSeconds())}.${ext}`
   const prefs = getPrefs()
@@ -166,15 +241,45 @@ async function saveRecording(buffer: Buffer, ext: string, host: EditorHost): Pro
   const options = {
     defaultPath: join(dir, name),
     filters: [
-      ext === 'gif'
-        ? { name: 'GIF', extensions: ['gif'] }
-        : { name: 'WebM video', extensions: ['webm'] }
+      ext === 'webm'
+        ? { name: 'WebM video', extensions: ['webm'] }
+        : { name: 'MP4 video', extensions: ['mp4'] }
     ]
   }
   const { canceled, filePath } = win
     ? await dialog.showSaveDialog(win, options)
     : await dialog.showSaveDialog(options)
   if (canceled || !filePath) return
-  await writeFile(filePath, buffer)
+
+  // MediaRecorder writes fragmented mp4/WebM: no duration header, so players
+  // show 0:00 and cannot seek. A stream copy through ffmpeg rewrites the
+  // container properly (and moves the mp4 moov atom to the front).
+  const tmp = join(app.getPath('temp'), `snapkit-rec-${Date.now()}.${ext}`)
+  try {
+    await writeFile(tmp, buffer)
+    await runFfmpeg({
+      args: [
+        '-i',
+        tmp,
+        '-c',
+        'copy',
+        ...(ext === 'mp4' ? ['-movflags', '+faststart'] : []),
+        filePath
+      ]
+    })
+  } catch (err) {
+    console.warn('[recorder] ffmpeg remux failed, saving the raw recording instead:', err)
+    try {
+      await writeFile(filePath, buffer)
+    } catch (writeErr) {
+      new Notification({
+        title: 'Could not save recording',
+        body: writeErr instanceof Error ? writeErr.message : String(writeErr)
+      }).show()
+      return
+    }
+  } finally {
+    await rm(tmp, { force: true }).catch(() => undefined)
+  }
   shell.showItemInFolder(filePath)
 }

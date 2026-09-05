@@ -10,6 +10,8 @@ export interface TrayActions {
   captureWindow: () => void
   captureScrolling: () => void
   recordArea: () => void
+  recordScreen: () => void
+  recordWindow: () => void
   clipboardHistory: () => void
   quit: () => void
 }
@@ -21,6 +23,8 @@ type TrayShortcuts = Pick<
   | 'windowShortcut'
   | 'scrollingShortcut'
   | 'recordShortcut'
+  | 'recordScreenShortcut'
+  | 'recordWindowShortcut'
   | 'historyShortcut'
 >
 
@@ -49,7 +53,18 @@ function buildMenu(shortcuts: TrayShortcuts): Menu {
       accelerator: shortcuts.scrollingShortcut,
       click: actions.captureScrolling
     },
+    { type: 'separator' },
     { label: 'Record Area…', accelerator: shortcuts.recordShortcut, click: actions.recordArea },
+    {
+      label: 'Record Screen',
+      accelerator: shortcuts.recordScreenShortcut,
+      click: actions.recordScreen
+    },
+    {
+      label: 'Record Window…',
+      accelerator: shortcuts.recordWindowShortcut,
+      click: actions.recordWindow
+    },
     { type: 'separator' },
     {
       label: 'Clipboard History',

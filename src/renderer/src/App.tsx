@@ -205,7 +205,7 @@ function App(): React.JSX.Element {
                   label: 'Record',
                   kbd: formatAccelerator(prefs?.recordShortcut ?? 'CommandOrControl+Shift+7'),
                   mode: 'record' as const,
-                  title: 'Record an area of the screen (WebM or GIF — see Preferences)'
+                  title: 'Record an area of the screen (format and presets in Preferences)'
                 }
               ] as const
             ).map(({ icon: Icon, label, kbd, mode, title }) => (

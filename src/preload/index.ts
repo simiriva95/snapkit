@@ -53,7 +53,7 @@ const controlApi: ControlApi = {
 const recorderApi: RecorderApi = {
   onStart: (cb) => on<RecordJob>(IpcChannels.recordStart, cb),
   onStop: (cb) => on<void>(IpcChannels.recordStop, () => cb()),
-  sendResult: (data, ext) => ipcRenderer.send(IpcChannels.recordResult, data, ext)
+  sendResult: (data, ext, error) => ipcRenderer.send(IpcChannels.recordResult, data, ext, error)
 }
 
 const historyApi: HistoryApi = {

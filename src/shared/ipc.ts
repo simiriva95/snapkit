@@ -4,6 +4,8 @@
  * exposes on `window.api` / `window.overlayApi`. No magic strings.
  */
 
+import type { RecordFormat, RecordFps, RecordResolution } from './recordPlan'
+
 export const IpcChannels = {
   appVersion: 'app:version',
   windowHide: 'window:hide',
@@ -76,7 +78,8 @@ export const DEFAULT_CAPTURE_SHORTCUT = 'CommandOrControl+Shift+2'
 export const DEFAULT_HISTORY_SHORTCUT = 'CommandOrControl+Shift+V'
 
 /** Capture entry points. */
-export type CaptureMode = 'area' | 'fullscreen' | 'window' | 'scrolling' | 'record'
+export type CaptureMode =
+  'area' | 'fullscreen' | 'window' | 'scrolling' | 'record' | 'record-screen' | 'record-window'
 
 /** What a floating control bar is controlling. */
 export type ControlMode = 'scroll' | 'record'
@@ -89,15 +92,21 @@ export interface ScrollFramesPayload {
   dipWidth: number
 }
 
+/** What kind of source a recording job captures. */
+export type RecordSource = 'area' | 'screen' | 'window'
+
 /** Recording job sent to the hidden recorder window. */
 export interface RecordJob {
-  /** Selection in display CSS px. */
-  rect: Rect
+  source: RecordSource
+  /** area only: selection in display CSS px. */
+  rect?: Rect
   /** DIP size of the display being recorded (maps video px → rect px). */
   displaySize: { width: number; height: number }
-  format: 'webm' | 'gif'
-  /** Hard stop after this many seconds. */
-  maxSeconds: number
+  format: RecordFormat
+  resolution: RecordResolution
+  fps: RecordFps
+  mic: boolean
+  systemAudio: boolean
 }
 
 /** One capturable window shown in the picker grid. */
@@ -213,8 +222,11 @@ export interface ControlApi {
 export interface RecorderApi {
   onStart: (cb: (job: RecordJob) => void) => () => void
   onStop: (cb: () => void) => () => void
-  /** Hand the encoded bytes back to main for saving. */
-  sendResult: (data: ArrayBuffer, ext: string) => void
+  /**
+   * Hand the encoded bytes back to main for saving. An empty buffer means the
+   * recording failed; `error` is then the reason to show the user.
+   */
+  sendResult: (data: ArrayBuffer, ext: RecordFormat, error?: string) => void
 }
 
 /** The API bridged into the selection overlay window. */
