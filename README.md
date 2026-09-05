@@ -65,6 +65,17 @@ ship with the app, so airplane mode changes nothing.
 
 <p align="center"><img src="docs/screenshots/redaction-review.png" width="820" alt="the redaction review step — dashed regions labelled &quot;JWT&quot;, &quot;AWS access key&quot;, &quot;Email address&quot; over a terminal, with the &quot;Blur N&quot; button visible"></p>
 
+<table>
+  <tr>
+    <td><img src="docs/screenshots/annotations.png" alt="Editor with annotation tools: rectangle, arrow, numbered step markers and a text label over a web page screenshot"></td>
+    <td><img src="docs/screenshots/area-overlay.png" alt="Area capture overlay on a frozen frame, mid-drag, with the live width×height label"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/clipboard-history.png" alt="Clipboard history panel: text and image entries with search, timestamps and a pinned item"></td>
+    <td><img src="docs/screenshots/window-picker.png" alt="Window picker with live thumbnails of the open windows"></td>
+  </tr>
+</table>
+
 ## Tech stack
 
 | Layer        | Choice                                                                                                       |
