@@ -49,7 +49,7 @@ Cloud features conflict with "never leaves your device" — resolve by **opt-in 
 
 | #   | Item                                  | Effort | Note                                                                                                                                                           |
 | --- | ------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 3.1 | Video / GIF recording                 | XL     | **In progress** — see `docs/superpowers/specs/2026-09-03-video-suite-design.md` (V0 ffmpeg plumbing ✅, V1 recorder ✅, V2 replay buffer, V3 editor).          |
+| 3.1 | Video / GIF recording                 | XL     | **In progress** — see `docs/superpowers/specs/2026-09-03-video-suite-design.md` (V0 ffmpeg plumbing ✅, V1 recorder ✅, V2 replay buffer, V3 editor ✅).       |
 | 3.2 | Cloud upload + shareable links        | L      | The only server-side product surface. S3+CDN, link = `snap.kit/x7Ab3`. Optional client-side encryption (key in fragment) to keep the privacy story. Paid tier. |
 | 3.3 | Sync (prefs/templates across devices) | M      | Rides on 3.2's account infra. Not before it.                                                                                                                   |
 | 3.4 | Team version                          | XL     | Shared workspaces, admin, SSO. Only with real demand signals from 3.2 users.                                                                                   |
@@ -71,6 +71,8 @@ Cloud features conflict with "never leaves your device" — resolve by **opt-in 
 - **Control bar is visible in screen/window recordings** — Electron cannot exclude a window
   from ScreenCaptureKit/WGC capture; options: move the bar to another display when present,
   or a tray-only timer.
+- **Editor: source fps unknown to the renderer** (frame nudge = 1/30 s); recordings browser;
+  crop/speed still out.
 
 ## Explicitly rejected (for now)
 

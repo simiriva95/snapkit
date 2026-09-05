@@ -327,6 +327,21 @@ videoPickFile    suite/tray → main: open dialog → openVideo
   VLC; clip saved < 2 s after hotkey; trim-only export is instant; gif export ≤ 20 MB
   for 10 s at 720 px.
 
+**Landed (2026-09-04)**: `ExportEdits.mode` is a `{ kind: 'copy' | 'quality' | 'size' }`
+union rather than an implicit "trim-only ⇒ stream copy" rule — `'copy'` ("Original" in the
+UI) is a first-class choice that `normalizeEdits` falls back off whenever it stops being
+possible (container/height/mute change, or GIF), and `canCopy`/`planExport` gate the actual
+stream-copy path on it. Drag-and-drop opens a file via `videoOpenPath`
+(`webUtils.getPathForFile` in the preload, since a dropped `File` has no path in the
+renderer) rather than through `videoOpen`/`videoPickFile`. Recordings are written to
+`userData/recordings` by `finalizeRecording` (remuxed with `ffmpeg -c copy` for a seekable
+duration header, raw bytes kept as a fallback if the remux fails) and swept at startup by
+`pruneRecordings`/`staleRecordings` (`src/main/recordingsPrune.ts`) at a 7-day threshold —
+no recordings browser yet (ROADMAP). The renderer has no way to read the source fps, so
+`FRAME_SEC` (`src/shared/videoPlan.ts`) hardcodes the `[`/`]` nudge and the minimum trim
+span to 1/30 s regardless of the actual frame rate. `Timeline.tsx` also binds `I`/`O`
+(set in/out at the playhead) and `Space` (play/pause) alongside the `[`/`]` nudge.
+
 ---
 
 ## 4. Data flow summary

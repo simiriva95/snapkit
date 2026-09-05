@@ -1,25 +1,20 @@
 import {
-  app,
   BrowserWindow,
   desktopCapturer,
-  dialog,
   ipcMain,
   Notification,
   session as electronSession,
-  shell,
   systemPreferences,
   type Display
 } from 'electron'
-import { rm, writeFile } from 'fs/promises'
 import os from 'os'
 import { join } from 'path'
 import { IpcChannels, type Rect, type RecordJob } from '@shared/ipc'
 import type { RecordFormat } from '@shared/recordPlan'
 import { getPrefs } from './prefs'
 import { createControlBar, sendControlStatus } from './controlbar'
-import { runFfmpeg } from './ffmpeg'
 import { APP_URL } from './protocol'
-import type { EditorHost } from './capture'
+import { finalizeRecording } from './video'
 
 const RENDERER_DEV_URL = process.env['ELECTRON_RENDERER_URL']
 
@@ -80,7 +75,7 @@ export function setupDisplayMediaHandler(): void {
   })
 }
 
-export function registerRecorderIpc(host: EditorHost): void {
+export function registerRecorderIpc(): void {
   ipcMain.on(IpcChannels.controlAction, (event, action: 'done' | 'cancel') => {
     if (current && current.control.webContents.id === event.sender.id) {
       if (action === 'done') stopRecording()
@@ -103,7 +98,12 @@ export function registerRecorderIpc(host: EditorHost): void {
         }).show()
         return
       }
-      void saveRecording(buffer, ext, host)
+      void finalizeRecording(buffer, ext).catch((err) =>
+        new Notification({
+          title: 'Could not save recording',
+          body: err instanceof Error ? err.message : String(err)
+        }).show()
+      )
     }
   )
 }
@@ -227,59 +227,4 @@ function teardown(): void {
   clearInterval(timer)
   if (!recorder.isDestroyed()) recorder.destroy()
   if (!control.isDestroyed()) control.destroy()
-}
-
-const pad2 = (n: number): string => String(n).padStart(2, '0')
-
-async function saveRecording(buffer: Buffer, ext: RecordFormat, host: EditorHost): Promise<void> {
-  const d = new Date()
-  const name = `Snapkit Recording ${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} at ${pad2(d.getHours())}.${pad2(d.getMinutes())}.${pad2(d.getSeconds())}.${ext}`
-  const prefs = getPrefs()
-  const dir = prefs.exportDir ?? app.getPath('desktop')
-
-  const win = host.peek()
-  const options = {
-    defaultPath: join(dir, name),
-    filters: [
-      ext === 'webm'
-        ? { name: 'WebM video', extensions: ['webm'] }
-        : { name: 'MP4 video', extensions: ['mp4'] }
-    ]
-  }
-  const { canceled, filePath } = win
-    ? await dialog.showSaveDialog(win, options)
-    : await dialog.showSaveDialog(options)
-  if (canceled || !filePath) return
-
-  // MediaRecorder writes fragmented mp4/WebM: no duration header, so players
-  // show 0:00 and cannot seek. A stream copy through ffmpeg rewrites the
-  // container properly (and moves the mp4 moov atom to the front).
-  const tmp = join(app.getPath('temp'), `snapkit-rec-${Date.now()}.${ext}`)
-  try {
-    await writeFile(tmp, buffer)
-    await runFfmpeg({
-      args: [
-        '-i',
-        tmp,
-        '-c',
-        'copy',
-        ...(ext === 'mp4' ? ['-movflags', '+faststart'] : []),
-        filePath
-      ]
-    })
-  } catch (err) {
-    console.warn('[recorder] ffmpeg remux failed, saving the raw recording instead:', err)
-    try {
-      await writeFile(filePath, buffer)
-    } catch (writeErr) {
-      new Notification({
-        title: 'Could not save recording',
-        body: writeErr instanceof Error ? writeErr.message : String(writeErr)
-      }).show()
-      return
-    }
-  } finally {
-    await rm(tmp, { force: true }).catch(() => undefined)
-  }
-  shell.showItemInFolder(filePath)
 }

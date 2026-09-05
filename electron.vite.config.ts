@@ -43,7 +43,8 @@ export default defineConfig({
           history: resolve(__dirname, 'src/renderer/history.html'),
           ocr: resolve(__dirname, 'src/renderer/ocr.html'),
           controlbar: resolve(__dirname, 'src/renderer/controlbar.html'),
-          recorder: resolve(__dirname, 'src/renderer/recorder.html')
+          recorder: resolve(__dirname, 'src/renderer/recorder.html'),
+          video: resolve(__dirname, 'src/renderer/video.html')
         }
       }
     },

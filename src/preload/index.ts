@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import {
   IpcChannels,
   type CaptureMode,
@@ -15,6 +15,8 @@ import {
   type Rect,
   type ScrollFramesPayload,
   type SnapkitApi,
+  type VideoApi,
+  type VideoOpenPayload,
   type WindowSource
 } from '@shared/ipc'
 
@@ -92,6 +94,16 @@ const pickerApi: PickerApi = {
   cancel: () => ipcRenderer.send(IpcChannels.pickerCancel)
 }
 
+const videoApi: VideoApi = {
+  onOpen: (cb) => on<VideoOpenPayload>(IpcChannels.videoOpen, cb),
+  export: (req) => ipcRenderer.invoke(IpcChannels.videoExport, req),
+  onProgress: (cb) => on<number>(IpcChannels.videoProgress, cb),
+  cancel: () => ipcRenderer.send(IpcChannels.videoCancel),
+  pickFile: () => ipcRenderer.invoke(IpcChannels.videoPickFile),
+  // Sandboxed renderers have no File.path; the preload resolves it.
+  openDropped: (file) => ipcRenderer.send(IpcChannels.videoOpenPath, webUtils.getPathForFile(file))
+}
+
 // contextIsolation is on: expose the APIs on isolated globals.
 if (process.contextIsolated) {
   try {
@@ -102,6 +114,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('ocrApi', ocrApi)
     contextBridge.exposeInMainWorld('controlApi', controlApi)
     contextBridge.exposeInMainWorld('recorderApi', recorderApi)
+    contextBridge.exposeInMainWorld('videoApi', videoApi)
   } catch (error) {
     console.error('[preload] failed to expose api:', error)
   }
@@ -115,6 +128,7 @@ if (process.contextIsolated) {
     recorderApi: RecorderApi
     historyApi: HistoryApi
     ocrApi: OcrApi
+    videoApi: VideoApi
   }
   w.api = api
   w.overlayApi = overlayApi
@@ -123,4 +137,5 @@ if (process.contextIsolated) {
   w.recorderApi = recorderApi
   w.historyApi = historyApi
   w.ocrApi = ocrApi
+  w.videoApi = videoApi
 }

@@ -12,6 +12,7 @@ export interface TrayActions {
   recordArea: () => void
   recordScreen: () => void
   recordWindow: () => void
+  editVideo: () => void
   clipboardHistory: () => void
   quit: () => void
 }
@@ -65,6 +66,7 @@ function buildMenu(shortcuts: TrayShortcuts): Menu {
       accelerator: shortcuts.recordWindowShortcut,
       click: actions.recordWindow
     },
+    { label: 'Edit Video…', click: actions.editVideo },
     { type: 'separator' },
     {
       label: 'Clipboard History',

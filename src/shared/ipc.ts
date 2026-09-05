@@ -5,6 +5,7 @@
  */
 
 import type { RecordFormat, RecordFps, RecordResolution } from './recordPlan'
+import type { ExportEdits, VideoMeta } from './videoPlan'
 
 export const IpcChannels = {
   appVersion: 'app:version',
@@ -66,7 +67,19 @@ export const IpcChannels = {
   /** main → hidden OCR window: recognize text in this image. */
   ocrRun: 'ocr:run',
   /** OCR window → main: recognized text for a request. */
-  ocrResult: 'ocr:result'
+  ocrResult: 'ocr:result',
+  /** main → editor: a video is ready to load. */
+  videoOpen: 'video:open',
+  /** editor → main (invoke): run the export plan. */
+  videoExport: 'video:export',
+  /** main → editor: export progress, 0..1. */
+  videoProgress: 'video:progress',
+  /** editor → main: abort the in-flight export. */
+  videoCancel: 'video:cancel',
+  /** editor → main (invoke): open a native file picker, load the result. */
+  videoPickFile: 'video:pick-file',
+  /** editor → main: a dropped file's path (from webUtils.getPathForFile). */
+  videoOpenPath: 'video:open-path'
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
@@ -247,4 +260,41 @@ export interface PickerApi {
   select: (id: string) => void
   /** Abort. */
   cancel: () => void
+}
+
+/** A video handed to the editor window. */
+export interface VideoOpenPayload {
+  path: string
+  url: string
+  name: string
+  sizeBytes: number
+  container: 'mp4' | 'webm' | 'other'
+  ffmpegAvailable: boolean
+}
+
+/** Export request: the source file plus the edits/metadata to plan ffmpeg args from. */
+export interface VideoExportRequest {
+  path: string
+  edits: ExportEdits
+  meta: VideoMeta
+}
+
+/** Outcome of an export run. */
+export type VideoExportResult =
+  { ok: true; output: string } | { ok: false; error: string; canceled?: boolean }
+
+/** The API bridged into the video editor window. */
+export interface VideoApi {
+  /** Receive the video to load. Returns unsubscribe. */
+  onOpen: (cb: (p: VideoOpenPayload) => void) => () => void
+  /** Run the export; resolves once ffmpeg finishes, fails, or is cancelled. */
+  export: (req: VideoExportRequest) => Promise<VideoExportResult>
+  /** Export progress, 0..1. Returns unsubscribe. */
+  onProgress: (cb: (ratio: number) => void) => () => void
+  /** Abort the in-flight export. */
+  cancel: () => void
+  /** Native file picker; true if a file was chosen (and opened). */
+  pickFile: () => Promise<boolean>
+  /** A file dropped onto the editor window. */
+  openDropped: (file: File) => void
 }

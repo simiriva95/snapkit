@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Folder, KeyRound, Keyboard } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
+import { Segmented } from '@renderer/components/ui/segmented'
+import { Toggle } from '@renderer/components/ui/toggle'
 import { usePrefsStore } from '@renderer/stores/prefs'
 import { acceleratorFromEvent, formatAccelerator } from '@renderer/lib/accelerator'
 import { cn } from '@renderer/lib/utils'
@@ -15,71 +17,6 @@ function Row({ label, children }: { label: string; children: React.ReactNode }):
       <span className="text-sm">{label}</span>
       <div className="flex items-center gap-2">{children}</div>
     </div>
-  )
-}
-
-function Segmented<T extends string | number>({
-  value,
-  options,
-  onChange,
-  ariaLabel
-}: {
-  value: T
-  options: { value: T; label: string }[]
-  onChange: (v: T) => void
-  ariaLabel: string
-}): React.JSX.Element {
-  return (
-    <div role="radiogroup" aria-label={ariaLabel} className="flex rounded-md border p-0.5">
-      {options.map((o) => (
-        <button
-          key={String(o.value)}
-          role="radio"
-          aria-checked={value === o.value}
-          onClick={() => onChange(o.value)}
-          className={cn(
-            'rounded px-2.5 py-1 text-xs outline-none transition-colors',
-            'focus-visible:ring-[3px] focus-visible:ring-ring/50',
-            value === o.value
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function Toggle({
-  checked,
-  onChange,
-  ariaLabel
-}: {
-  checked: boolean
-  onChange: (v: boolean) => void
-  ariaLabel: string
-}): React.JSX.Element {
-  return (
-    <button
-      role="switch"
-      aria-checked={checked}
-      aria-label={ariaLabel}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        'h-6 w-10 rounded-full p-0.5 outline-none transition-colors',
-        'focus-visible:ring-[3px] focus-visible:ring-ring/50',
-        checked ? 'bg-primary' : 'bg-input'
-      )}
-    >
-      <span
-        className={cn(
-          'block size-5 rounded-full bg-background shadow transition-transform',
-          checked && 'translate-x-4'
-        )}
-      />
-    </button>
   )
 }
 
