@@ -49,6 +49,8 @@ interface RingBuffer {
 let buffer: RingBuffer | null = null
 let starting = false
 let saving = false
+/** A restart requested while a save was running; honoured when the save ends. */
+let restartAfterSave = false
 let flushSeq = 0
 let pendingFlush: { id: number; resolve: () => void } | null = null
 let failures = 0
@@ -78,7 +80,13 @@ export function initReplay(): void {
     IpcChannels.replaySegment,
     (event, data: ArrayBuffer, durationMs: number, ext: RecordFormat, flushId?: number) => {
       if (!buffer || event.sender.id !== buffer.win.webContents.id) return
-      if (ext !== 'mp4' && ext !== 'webm') return
+      if (ext !== 'mp4' && ext !== 'webm') {
+        if (flushId !== undefined && pendingFlush?.id === flushId) {
+          pendingFlush.resolve()
+          pendingFlush = null
+        }
+        return
+      }
       void storeSegment(
         buffer,
         Buffer.from(data),
@@ -149,6 +157,7 @@ async function startBuffer(keepMs: number): Promise<void> {
     // Re-read after the awaits: the pref may have been switched off meanwhile.
     const prefs = getPrefs()
     if (buffer || prefs.replayBuffer === 0) return
+    keepMs = prefs.replayBuffer * 1000 // the length may have changed during the awaits
 
     const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
     const systemAudio = prefs.recordSystemAudio && systemAudioSupported()
@@ -188,6 +197,10 @@ async function startBuffer(keepMs: number): Promise<void> {
       if (buffer?.win === win && !buffer.stopping) {
         buffer = null
         emit()
+        if (!win.isDestroyed()) {
+          clearPendingSource(win.webContents.id)
+          win.destroy() // render-process-gone leaves the window object alive
+        }
         restartLater()
       }
     }
@@ -232,13 +245,17 @@ async function stopBuffer(): Promise<void> {
  * failure persists. Reset by a stored segment or a pref change.
  */
 function restartLater(): void {
-  if (restartTimer || saving) return
+  if (restartTimer) return
+  if (saving) {
+    restartAfterSave = true
+    return
+  }
   const delay = RESTART_DELAYS_MS[failures]
   if (delay === undefined) {
     void stopBuffer()
     notify(
       'Replay buffer stopped',
-      'Screen capture kept failing. Turn the buffer on again in Preferences to retry.'
+      'Screen capture kept failing. Turn the buffer off and on again in Preferences to retry.'
     )
     failures = 0
     return
@@ -347,6 +364,10 @@ export function saveReplay(): void {
     }
   })().finally(() => {
     saving = false
+    if (restartAfterSave) {
+      restartAfterSave = false
+      restartLater()
+    }
   })
 }
 
@@ -354,9 +375,23 @@ export function saveReplay(): void {
 export async function sweepReplayTemp(): Promise<void> {
   const tmp = app.getPath('temp')
   const names = await readdir(tmp).catch(() => [] as string[])
+  const alive = (pid: number): boolean => {
+    try {
+      process.kill(pid, 0)
+      return true
+    } catch {
+      return false
+    }
+  }
   await Promise.all(
     names
       .filter((n) => n.startsWith('snapkit-replay'))
+      // Another Snapkit (dev instance beside the packaged app) may own a live ring: leave it.
+      .filter((n) => {
+        const pid = Number(n.slice('snapkit-replay-'.length))
+        return !(Number.isInteger(pid) && pid > 0 && pid !== process.pid && alive(pid))
+      })
+      .filter((n) => n !== `snapkit-replay-${process.pid}`)
       .map((n) => rm(join(tmp, n), { recursive: true, force: true }).catch(() => undefined))
   )
 }

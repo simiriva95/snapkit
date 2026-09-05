@@ -4,7 +4,7 @@ import { Button } from '@renderer/components/ui/button'
 import { Segmented } from '@renderer/components/ui/segmented'
 import { Toggle } from '@renderer/components/ui/toggle'
 import { usePrefsStore } from '@renderer/stores/prefs'
-import { acceleratorFromEvent, formatAccelerator } from '@renderer/lib/accelerator'
+import { acceleratorFromEvent, formatAccelerator, IS_MAC } from '@renderer/lib/accelerator'
 import { cn } from '@renderer/lib/utils'
 import { dragRegion, noDrag } from '@renderer/lib/titlebar'
 import { STYLED_TEMPLATES } from '@renderer/editor/exporter'
@@ -12,8 +12,7 @@ import { BUNDLED_OCR_LANGUAGES, type Prefs } from '@shared/prefs'
 import { videoBitrate } from '@shared/recordPlan'
 import type { LicenseStatus } from '@shared/license'
 
-const isMac = navigator.platform.startsWith('Mac')
-const videosFolder = isMac ? 'Movies' : 'Videos'
+const videosFolder = IS_MAC ? 'Movies' : 'Videos'
 
 function Row({ label, children }: { label: string; children: React.ReactNode }): React.JSX.Element {
   return (
@@ -324,7 +323,7 @@ function PrefsPanel({ onBack }: { onBack: () => void }): React.JSX.Element {
                   8e6
               )}{' '}
               MB.
-              {isMac &&
+              {IS_MAC &&
                 ' The microphone is not mixed into the buffer on macOS (it would prompt at login).'}
             </p>
           )}

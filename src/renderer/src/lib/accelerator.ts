@@ -1,6 +1,6 @@
 /** Electron accelerator helpers: display formatting + keydown recording. */
 
-const IS_MAC = navigator.platform.startsWith('Mac')
+export const IS_MAC = navigator.platform.startsWith('Mac')
 
 /** Human display for an accelerator: mac symbols, Ctrl+ elsewhere. */
 export function formatAccelerator(acc: string): string {

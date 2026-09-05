@@ -16,7 +16,8 @@ let queued: { flushId?: number } | null = null
 
 const requestRotate = (flushId?: number): void => {
   if (rotate) rotate(flushId)
-  else queued = { flushId }
+  // A stop right after a flush must not lose the flush id (main would wait out its timeout).
+  else queued = { flushId: flushId ?? queued?.flushId }
 }
 
 window.replayApi.onStop(() => {
