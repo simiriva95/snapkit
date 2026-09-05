@@ -11,3 +11,5 @@ src/renderer/public/ocr/core/
 # generated subject-extraction assets (setup-bgr.mjs)
 src/renderer/public/bgr/
 scripts/dev-license-keys/private.pem
+# generated ffmpeg binary (setup-ffmpeg.mjs)
+resources/ffmpeg/

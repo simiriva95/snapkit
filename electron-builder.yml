@@ -5,7 +5,22 @@ directories:
 files:
   - out/**
   - resources/**
+  - '!resources/ffmpeg/**'
   - package.json
+
+# Bundled ffmpeg (video post-processing). Only the host platform's binary is
+# present (scripts/setup-ffmpeg.mjs) and only it ships: ${os}/${arch} are
+# electron-builder macros → mac-arm64, win-x64, linux-x64.
+# Read from process.resourcesPath + '/ffmpeg' (see src/main/ffmpeg.ts).
+extraResources:
+  - from: resources/ffmpeg/${os}-${arch}/
+    to: ffmpeg/
+    filter: ['**/*', '!.sha256']
+
+# A missing extraResources source is only a WARNING in electron-builder, so
+# cross-platform packaging would silently ship an installer without ffmpeg.
+# This hook turns that into a hard failure.
+beforePack: scripts/before-pack.mjs
 
 # Signing is env-driven (see docs/selling.md): local `npm run package` skips
 # it via CSC_IDENTITY_AUTO_DISCOVERY=false; CI signs when secrets are present

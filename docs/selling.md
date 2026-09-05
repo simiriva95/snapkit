@@ -38,6 +38,15 @@ node scripts/license-keygen.mjs sign --key private.pem --email cust@x.io --order
 
 electron-builder signs + notarizes automatically when these are present.
 
+- **Bundled ffmpeg**: the app ships a nested Mach-O at
+  `Contents/Resources/ffmpeg/ffmpeg`. When moving to Developer ID +
+  `hardenedRuntime: true` + notarization it must be signed with the **same
+  identity and a secure timestamp** (`--timestamp`), or notarization fails on the
+  unsigned/ad-hoc nested binary. Library validation under the hardened runtime
+  also affects spawning it — verify `ffmpeg -version` from the packaged app after
+  the first notarized build. Today's ad-hoc (`identity: '-'`,
+  `hardenedRuntime: false`) path works as-is.
+
 ## 4. Windows signing
 
 Cheapest sane route (2025+): **Azure Trusted Signing** (~$10/month).
