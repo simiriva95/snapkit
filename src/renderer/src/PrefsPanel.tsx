@@ -4,12 +4,15 @@ import { Button } from '@renderer/components/ui/button'
 import { Segmented } from '@renderer/components/ui/segmented'
 import { Toggle } from '@renderer/components/ui/toggle'
 import { usePrefsStore } from '@renderer/stores/prefs'
-import { acceleratorFromEvent, formatAccelerator } from '@renderer/lib/accelerator'
+import { acceleratorFromEvent, formatAccelerator, IS_MAC } from '@renderer/lib/accelerator'
 import { cn } from '@renderer/lib/utils'
 import { dragRegion, noDrag } from '@renderer/lib/titlebar'
 import { STYLED_TEMPLATES } from '@renderer/editor/exporter'
 import { BUNDLED_OCR_LANGUAGES, type Prefs } from '@shared/prefs'
+import { videoBitrate } from '@shared/recordPlan'
 import type { LicenseStatus } from '@shared/license'
+
+const videosFolder = IS_MAC ? 'Movies' : 'Videos'
 
 function Row({ label, children }: { label: string; children: React.ReactNode }): React.JSX.Element {
   return (
@@ -293,6 +296,70 @@ function PrefsPanel({ onBack }: { onBack: () => void }): React.JSX.Element {
               ariaLabel="Record microphone"
               checked={prefs.recordMic}
               onChange={(recordMic) => patch({ recordMic })}
+            />
+          </Row>
+
+          <Row label="Replay buffer">
+            <Segmented
+              ariaLabel="Replay buffer length"
+              value={prefs.replayBuffer}
+              options={[
+                { value: 0, label: 'Off' },
+                { value: 30, label: '30 s' },
+                { value: 60, label: '1 m' },
+                { value: 120, label: '2 m' },
+                { value: 300, label: '5 m' }
+              ]}
+              onChange={(replayBuffer) => patch({ replayBuffer })}
+            />
+          </Row>
+          {prefs.replayBuffer > 0 && (
+            <p className="pb-3 text-xs text-muted-foreground">
+              Records the screen under the cursor continuously, using the recording presets above.
+              Temporary disk: up to ≈
+              {Math.round(
+                ((prefs.replayBuffer + 20) *
+                  videoBitrate(prefs.recordResolution, prefs.recordFps)) /
+                  8e6
+              )}{' '}
+              MB.
+              {IS_MAC &&
+                ' The microphone is not mixed into the buffer on macOS (it would prompt at login).'}
+            </p>
+          )}
+
+          <Row label="Save replay">
+            <ShortcutRecorder
+              label="Save replay shortcut"
+              value={prefs.replayShortcut}
+              onRecord={(acc) => patch({ replayShortcut: acc })}
+            />
+          </Row>
+
+          <Row label="Clips folder">
+            <span
+              className="max-w-44 truncate text-xs text-muted-foreground"
+              title={prefs.clipsDir ?? `${videosFolder}/Snapkit Clips`}
+            >
+              {prefs.clipsDir ?? `${videosFolder}/Snapkit Clips`}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                void window.api.pickExportDir().then((dir) => dir && patch({ clipsDir: dir }))
+              }
+            >
+              <Folder />
+              Choose…
+            </Button>
+          </Row>
+
+          <Row label="Open clips in the editor">
+            <Toggle
+              ariaLabel="Open clips in the editor"
+              checked={prefs.clipOpenInEditor}
+              onChange={(clipOpenInEditor) => patch({ clipOpenInEditor })}
             />
           </Row>
 

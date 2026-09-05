@@ -5,6 +5,7 @@ import {
   Notification,
   session as electronSession,
   systemPreferences,
+  webContents,
   type Display
 } from 'electron'
 import os from 'os'
@@ -46,14 +47,46 @@ export function systemAudioSupported(): boolean {
 }
 
 let current: RecordSession | null = null
-/** What the in-flight getDisplayMedia request should receive (set by startRecording). */
-let pendingSource: { displayId: number; sourceId?: string; audio: boolean } | null = null
+
+export interface PendingSource {
+  displayId: number
+  sourceId?: string
+  audio: boolean
+}
+/**
+ * Source each hidden window (recorder, replay) may capture, keyed by its
+ * webContents id and consumed by its own getDisplayMedia request. Keyed, not a
+ * single slot: two windows starting close together must never swap sources.
+ */
+const pendingSources = new Map<number, PendingSource>()
+
+export function setPendingSource(webContentsId: number, s: PendingSource): void {
+  pendingSources.set(webContentsId, s)
+}
+/** Drop an unconsumed grant (the window went away before asking). */
+export function clearPendingSource(webContentsId: number): void {
+  pendingSources.delete(webContentsId)
+}
+
+const stateListeners = new Set<(recording: boolean) => void>()
+export function onRecordingStateChange(cb: (recording: boolean) => void): void {
+  stateListeners.add(cb)
+}
+const emitState = (): void => stateListeners.forEach((cb) => cb(current !== null))
+export function isRecording(): boolean {
+  return current !== null
+}
+export function stopCurrentRecording(): void {
+  stopRecording()
+}
 
 /** Route the recorder's getDisplayMedia() to the chosen display or window, no picker. */
 export function setupDisplayMediaHandler(): void {
-  electronSession.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
-    const pending = pendingSource
-    // No pending job = a getDisplayMedia call we did not initiate: deny it.
+  electronSession.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+    const requester = request.frame ? webContents.fromFrame(request.frame)?.id : undefined
+    const pending = requester !== undefined ? pendingSources.get(requester) : undefined
+    if (requester !== undefined) pendingSources.delete(requester) // one-shot
+    // No grant for this window = a getDisplayMedia call we did not initiate: deny it.
     if (!pending) return callback({})
     desktopCapturer
       // Thumbnails/icons are pure overhead here — we only need the source handle.
@@ -133,12 +166,6 @@ async function begin(target: RecordTarget): Promise<void> {
   // silently made without system audio rather than failing.
   const systemAudio = prefs.recordSystemAudio && systemAudioSupported()
 
-  pendingSource = {
-    displayId: display.id,
-    sourceId: target.source === 'window' ? target.sourceId : undefined,
-    audio: systemAudio
-  }
-
   const recorder = new BrowserWindow({
     show: false,
     webPreferences: {
@@ -149,6 +176,11 @@ async function begin(target: RecordTarget): Promise<void> {
       // The window is hidden but drives the canvas RAF loop for area recordings.
       backgroundThrottling: false
     }
+  })
+  setPendingSource(recorder.webContents.id, {
+    displayId: display.id,
+    sourceId: target.source === 'window' ? target.sourceId : undefined,
+    audio: systemAudio
   })
 
   // Control bar: under the area, or on the recorded display for screen/window.
@@ -200,6 +232,7 @@ async function begin(target: RecordTarget): Promise<void> {
   control.on('closed', onDied)
 
   current = { recorder, control, timer, stopping: false }
+  emitState()
 }
 
 function stopRecording(): void {
@@ -223,8 +256,9 @@ function teardown(): void {
   if (!current) return
   const { recorder, control, timer } = current
   current = null
-  pendingSource = null
   clearInterval(timer)
+  if (!recorder.isDestroyed()) clearPendingSource(recorder.webContents.id)
   if (!recorder.isDestroyed()) recorder.destroy()
   if (!control.isDestroyed()) control.destroy()
+  emitState()
 }

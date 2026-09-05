@@ -79,7 +79,17 @@ export const IpcChannels = {
   /** editor → main (invoke): open a native file picker, load the result. */
   videoPickFile: 'video:pick-file',
   /** editor → main: a dropped file's path (from webUtils.getPathForFile). */
-  videoOpenPath: 'video:open-path'
+  videoOpenPath: 'video:open-path',
+  /** main → replay renderer: start buffering this job. */
+  replayStart: 'replay:start',
+  /** main → replay renderer: stop buffering. */
+  replayStop: 'replay:stop',
+  /** main → replay renderer: rotate now (flush id to correlate the segment). */
+  replayFlush: 'replay:flush',
+  /** replay renderer → main: one recorded segment. */
+  replaySegment: 'replay:segment',
+  /** replay renderer → main: the buffer failed. */
+  replayError: 'replay:error'
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
@@ -240,6 +250,25 @@ export interface RecorderApi {
    * recording failed; `error` is then the reason to show the user.
    */
   sendResult: (data: ArrayBuffer, ext: RecordFormat, error?: string) => void
+}
+
+/** Replay-buffer job sent to the hidden replay window. */
+export interface ReplayJob {
+  displaySize: { width: number; height: number }
+  resolution: RecordResolution
+  fps: RecordFps
+  mic: boolean
+  systemAudio: boolean
+  segmentSec: number
+}
+
+/** The API bridged into the hidden replay-buffer window. */
+export interface ReplayApi {
+  onStart: (cb: (job: ReplayJob) => void) => () => void
+  onStop: (cb: () => void) => () => void
+  onFlush: (cb: (id: number) => void) => () => void
+  sendSegment: (data: ArrayBuffer, durationMs: number, ext: RecordFormat, flushId?: number) => void
+  sendError: (message: string) => void
 }
 
 /** The API bridged into the selection overlay window. */

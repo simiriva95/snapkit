@@ -1,13 +1,27 @@
 import { app, shell, BrowserWindow, ipcMain, Notification, session } from 'electron'
 import { join } from 'path'
-import { IpcChannels } from '@shared/ipc'
-import { createTray, updateTrayShortcuts } from './tray'
+import { IpcChannels, type CaptureMode } from '@shared/ipc'
+import { createTray, updateTrayShortcuts, updateTrayState } from './tray'
 import { initCapture, startCapture, type EditorHost } from './capture'
 import { registerExportIpc } from './export'
 import { getPrefs, registerPrefsIpc, type ShortcutField } from './prefs'
 import { registerLicenseIpc } from './license'
 import { APP_URL, registerAppScheme, serveApp } from './protocol'
-import { registerRecorderIpc, setupDisplayMediaHandler } from './recorder'
+import {
+  isRecording,
+  onRecordingStateChange,
+  registerRecorderIpc,
+  setupDisplayMediaHandler,
+  stopCurrentRecording
+} from './recorder'
+import {
+  applyReplayPrefs,
+  initReplay,
+  onReplayStateChange,
+  saveReplay,
+  stopReplay,
+  sweepReplayTemp
+} from './replay'
 import { initVideo, pickAndOpenVideo } from './video'
 import { registerShortcut, unregisterShortcuts } from './shortcuts'
 import { applyLaunchAtLogin, launchedAtLogin } from './loginItem'
@@ -139,18 +153,25 @@ if (!gotLock) {
     registerRecorderIpc()
     initVideo()
     setupDisplayMediaHandler()
+    void sweepReplayTemp().then(() => initReplay())
     initOcrIndex()
     initHistory()
 
     // All entry points route through startCapture — the license guard lives there.
+    // Record shortcuts toggle: pressed while a recording runs, they stop it.
+    const recordOrStop = (mode: CaptureMode) => (): void => {
+      if (isRecording()) stopCurrentRecording()
+      else startCapture(mode, host)
+    }
     const handlers: Record<ShortcutField, () => void> = {
       captureShortcut: () => startCapture('area', host),
       fullscreenShortcut: () => startCapture('fullscreen', host),
       windowShortcut: () => startCapture('window', host),
       scrollingShortcut: () => startCapture('scrolling', host),
-      recordShortcut: () => startCapture('record', host),
-      recordScreenShortcut: () => startCapture('record-screen', host),
-      recordWindowShortcut: () => startCapture('record-window', host),
+      recordShortcut: recordOrStop('record'),
+      recordScreenShortcut: recordOrStop('record-screen'),
+      recordWindowShortcut: recordOrStop('record-window'),
+      replayShortcut: () => saveReplay(),
       historyShortcut: () => openHistoryPanel()
     }
     const prefs = getPrefs()
@@ -177,6 +198,7 @@ if (!gotLock) {
         updateTrayShortcuts(updated)
         applyHistoryPrefs(updated.clipboardHistory)
         applyLaunchAtLogin(updated.launchAtLogin, true)
+        applyReplayPrefs(updated)
       }
     )
 
@@ -194,12 +216,16 @@ if (!gotLock) {
         recordArea: handlers.recordShortcut,
         recordScreen: handlers.recordScreenShortcut,
         recordWindow: handlers.recordWindowShortcut,
+        stopRecording: () => stopCurrentRecording(),
+        saveReplay: () => saveReplay(),
         editVideo: () => void pickAndOpenVideo(),
         clipboardHistory: () => openHistoryPanel(),
         quit: () => app.quit()
       },
       prefs
     )
+    onRecordingStateChange((recording) => updateTrayState({ recording }))
+    onReplayStateChange((replayRunning) => updateTrayState({ replayRunning }))
 
     app.on('activate', () => {
       // macOS: re-show or recreate the window when the dock icon is clicked.
@@ -219,6 +245,7 @@ if (!gotLock) {
   app.on('window-all-closed', () => {})
 
   app.on('will-quit', () => {
+    void stopReplay()
     unregisterShortcuts()
     stopHistory()
     stopOcrIndex()

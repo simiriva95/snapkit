@@ -13,6 +13,8 @@ import {
   type RecordJob,
   type RecorderApi,
   type Rect,
+  type ReplayApi,
+  type ReplayJob,
   type ScrollFramesPayload,
   type SnapkitApi,
   type VideoApi,
@@ -56,6 +58,15 @@ const recorderApi: RecorderApi = {
   onStart: (cb) => on<RecordJob>(IpcChannels.recordStart, cb),
   onStop: (cb) => on<void>(IpcChannels.recordStop, () => cb()),
   sendResult: (data, ext, error) => ipcRenderer.send(IpcChannels.recordResult, data, ext, error)
+}
+
+const replayApi: ReplayApi = {
+  onStart: (cb) => on<ReplayJob>(IpcChannels.replayStart, cb),
+  onStop: (cb) => on<void>(IpcChannels.replayStop, () => cb()),
+  onFlush: (cb) => on<number>(IpcChannels.replayFlush, cb),
+  sendSegment: (data, durationMs, ext, flushId) =>
+    ipcRenderer.send(IpcChannels.replaySegment, data, durationMs, ext, flushId),
+  sendError: (message) => ipcRenderer.send(IpcChannels.replayError, message)
 }
 
 const historyApi: HistoryApi = {
@@ -115,6 +126,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('controlApi', controlApi)
     contextBridge.exposeInMainWorld('recorderApi', recorderApi)
     contextBridge.exposeInMainWorld('videoApi', videoApi)
+    contextBridge.exposeInMainWorld('replayApi', replayApi)
   } catch (error) {
     console.error('[preload] failed to expose api:', error)
   }
@@ -129,6 +141,7 @@ if (process.contextIsolated) {
     historyApi: HistoryApi
     ocrApi: OcrApi
     videoApi: VideoApi
+    replayApi: ReplayApi
   }
   w.api = api
   w.overlayApi = overlayApi
@@ -138,4 +151,5 @@ if (process.contextIsolated) {
   w.historyApi = historyApi
   w.ocrApi = ocrApi
   w.videoApi = videoApi
+  w.replayApi = replayApi
 }
